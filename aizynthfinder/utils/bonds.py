@@ -1,5 +1,4 @@
-"""Module containing a class to identify broken focussed bonds
-"""
+"""识别关注键断裂情况的工具模块。"""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -12,10 +11,10 @@ if TYPE_CHECKING:
 
 class BrokenBonds:
     """
-    A class to keep track of focussed bonds breaking in a target molecule.
+    跟踪目标分子中关注键断裂情况的工具类。
 
-    :param focussed_bonds: A list of focussed bond pairs. The bond pairs are represented
-        as tuples of size 2. These bond pairs exist in the target molecule's atom bonds.
+    :param focussed_bonds: 关注键对列表。
+        每个键对都由长度为 2 的元组表示，并且这些键应存在于目标分子的原子键中。
     """
 
     def __init__(self, focussed_bonds: Sequence[Sequence[int]]) -> None:
@@ -24,11 +23,10 @@ class BrokenBonds:
 
     def __call__(self, reaction: RetroReaction) -> List[Tuple[int, int]]:
         """
-        Provides a list of focussed bonds that break in any of the molecule's reactants.
+        返回在反应物中被断开的关注键列表。
 
-        :param reaction: A retro reaction.
-        :return: A list of all the focussed bonds that broke within the reactants
-            that constitute the target molecule.
+        :param reaction: 逆合成反应
+        :return: 目标分子对应反应物中所有已断开的关注键列表
         """
         self.filtered_focussed_bonds = self._get_filtered_focussed_bonds(reaction.mol)
         if not self.filtered_focussed_bonds:
@@ -66,4 +64,6 @@ class BrokenBonds:
 
 
 def sort_bonds(bonds: Sequence[Sequence[int]]) -> List[Tuple[int, int]]:
+    """对键对中的原子索引做排序并规范化为元组列表。"""
+
     return [tuple(sorted(bond)) for bond in bonds]  # type: ignore

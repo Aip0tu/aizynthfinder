@@ -1,4 +1,4 @@
-""" Module containing the implementation of a reaction tree or route and factory classes to make such trees """
+"""实现反应树（路线）及其构建工厂类的模块。"""
 
 from __future__ import annotations
 
@@ -38,16 +38,15 @@ if TYPE_CHECKING:
 
 class ReactionTree:
     """
-    Encapsulation of a bipartite reaction tree of a single route.
-    The nodes consists of either FixedRetroReaction or UniqueMolecule objects.
+    封装单条路线的二分反应树。
 
-    The reaction tree is initialized at instantiation and is not supposed to
-    be updated.
+    树中的节点由 `FixedRetroReaction` 或 `UniqueMolecule` 组成。
+    反应树在实例化时完成初始化，后续通常不再被修改。
 
-    :ivar graph: the bipartite graph
-    :ivar is_solved: if all of the leaf nodes are in stock
-    :ivar root: the root of the tree
-    :ivar created_at_iteration: iteration the reaction tree was created
+    :ivar graph: 二分图结构
+    :ivar is_solved: 所有叶子节点是否都在库存中
+    :ivar root: 树的根节点
+    :ivar created_at_iteration: 创建该反应树时对应的迭代次数
     """
 
     def __init__(self) -> None:
@@ -59,23 +58,22 @@ class ReactionTree:
     @classmethod
     def from_dict(cls, tree_dict: StrDict) -> "ReactionTree":
         """
-        Create a new ReactionTree by parsing a dictionary.
+        通过解析字典创建新的 `ReactionTree`。
 
-        This is supposed to be the opposite of ``to_dict``,
-        but because that format loses information, the returned
-        object is not a full copy as the stock will only contain
-        the list of molecules marked as ``in_stock`` in the dictionary.
+        该方法理论上与 `to_dict` 相对应，
+        但由于该格式会丢失部分信息，返回对象并不是完整拷贝；
+        其库存信息只会包含字典中标记为 `in_stock` 的分子。
 
-        The returned object should be sufficient to e.g. generate an image of the route.
+        不过，返回结果通常已足够用于生成路线图像等场景。
 
-        :param tree_dict: the dictionary representation
-        :returns: the reaction tree
+        :param tree_dict: 反应树的字典表示
+        :returns: 构建得到的反应树
         """
         return ReactionTreeFromDict(tree_dict).tree
 
     @property
     def metadata(self) -> StrDict:
-        """Return a dicitionary with route metadata"""
+        """返回包含路线元数据的字典。"""
         return {
             "created_at_iteration": self.created_at_iteration,
             "is_solved": self.is_solved,
@@ -83,10 +81,10 @@ class ReactionTree:
 
     def child_reactions(self, reaction: FixedRetroReaction) -> List[FixedRetroReaction]:
         """
-        Return the child reactions of a reaction node in the tree.
+        返回树中某个反应节点的子反应节点。
 
-        :param reaction: the query node (reaction)
-        :return: child reactions
+        :param reaction: 查询节点（反应）
+        :return: 子反应节点列表
         """
         child_molecule_nodes = self.graph.successors(reaction)
         reaction_nodes = []
@@ -96,21 +94,21 @@ class ReactionTree:
 
     def depth(self, node: Union[UniqueMolecule, FixedRetroReaction]) -> int:
         """
-        Return the depth of a node in the route
+        返回节点在路线中的深度。
 
-        :param node: the query node
-        :return: the depth
+        :param node: 查询节点
+        :return: 节点深度
         """
         return self.graph.nodes[node].get("depth", -1)
 
     def distance_to(self, other: "ReactionTree") -> float:
         """
-        Calculate the distance to another reaction tree
+        计算当前反应树与另一棵反应树之间的距离。
 
-        This is a simple distance based on a route similarity
+        距离基于路线相似度进行简单换算。
 
-        :param other: the reaction tree to compare to
-        :return: the distance between the routes
+        :param other: 要比较的另一棵反应树
+        :return: 两条路线之间的距离
         """
         route1 = read_aizynthfinder_dict(self.to_dict())
         route2 = read_aizynthfinder_dict(other.to_dict())
@@ -118,29 +116,28 @@ class ReactionTree:
 
     def hash_key(self) -> str:
         """
-        Calculates a hash code for the tree using the sha224 hash function recursively
+        使用 `sha224` 递归计算整棵树的哈希值。
 
-        :return: the hash key
+        :return: 哈希键
         """
         return self._hash_func(self.root)
 
     def in_stock(self, node: Union[UniqueMolecule, FixedRetroReaction]) -> bool:
         """
-        Return if a node in the route is in stock
+        返回路线中的节点是否在库存中。
 
-        Note that is a property set on creation and as such is not updated.
+        注意，这个属性在创建时写入，之后不会自动更新。
 
-        :param node: the query node
-        :return: if the molecule is in stock
+        :param node: 查询节点
+        :return: 分子是否在库存中
         """
         return self.graph.nodes[node].get("in_stock", False)
 
     def is_branched(self) -> bool:
         """
-        Returns if the route is branched
+        判断路线是否为分支结构。
 
-        i.e. checks if the maximum depth is not equal to the number
-        of reactions.
+        具体来说，会检查最大深度是否不等于反应步骤数。
         """
         nsteps = len(list(self.reactions()))
         max_depth = max(self.depth(leaf) for leaf in self.leafs())
@@ -148,10 +145,10 @@ class ReactionTree:
 
     def leafs(self) -> Iterable[UniqueMolecule]:
         """
-        Generates the molecules nodes of the reaction tree that has no predecessors,
-        i.e. molecules that has not been broken down
+        生成反应树中没有后继的分子节点，
+        即尚未继续被拆解的分子。
 
-        :yield: the next leaf molecule in the tree
+        :yield: 下一个叶子分子节点
         """
         for node in self.graph:
             if isinstance(node, UniqueMolecule) and not self.graph[node]:
@@ -159,18 +156,19 @@ class ReactionTree:
 
     def molecules(self) -> Iterable[UniqueMolecule]:
         """
-        Generates the molecule nodes of the reaction tree
+        生成反应树中的所有分子节点。
 
-        :yield: the next molecule in the tree
+        :yield: 下一个分子节点
         """
         for node in self.graph:
             if isinstance(node, UniqueMolecule):
                 yield node
 
     def parent_molecule(self, mol: UniqueMolecule) -> UniqueMolecule:
-        """Returns the parent molecule within the reaction tree.
-        :param mol: the query node (molecule)
-        :return: the parent molecule
+        """返回反应树中某个分子节点的父分子节点。
+
+        :param mol: 查询节点（分子）
+        :return: 父分子节点
         """
         if mol is self.root:
             raise ValueError("Root molecule does not have any parent node.")
@@ -181,9 +179,9 @@ class ReactionTree:
 
     def reactions(self) -> Iterable[FixedRetroReaction]:
         """
-        Generates the reaction nodes of the reaction tree
+        生成反应树中的所有反应节点。
 
-        :yield: the next reaction in the tree
+        :yield: 下一个反应节点
         """
         for node in self.graph:
             if not isinstance(node, Molecule):
@@ -191,10 +189,11 @@ class ReactionTree:
 
     def subtrees(self) -> Iterable[ReactionTree]:
         """
-        Generates the subtrees of this reaction tree a
-        subtree is a reaction treee starting at a molecule node that has children.
+        生成当前反应树的所有子树。
 
-        :yield: the next subtree
+        子树指的是从某个仍有子节点的分子节点开始的反应树。
+
+        :yield: 下一个子树
         """
 
         def create_subtree(root_node):
@@ -216,9 +215,10 @@ class ReactionTree:
 
     def to_dict(self, include_metadata=False) -> StrDict:
         """
-        Returns the reaction tree as a dictionary in a pre-defined format.
-        :param include_metadata: if True include metadata
-        :return: the reaction tree
+        按预定义格式将反应树转换为字典。
+
+        :param include_metadata: 若为 `True`，则包含元数据
+        :return: 反应树字典
         """
         return self._build_dict(self.root, include_metadata=include_metadata)
 
@@ -228,11 +228,11 @@ class ReactionTree:
         show_all: bool = True,
     ) -> PilImage:
         """
-        Return a pictorial representation of the route
+        返回路线的图像表示。
 
-        :param in_stock_colors: the colors around molecules, defaults to {True: "green", False: "orange"}
-        :param show_all: if True, also show nodes that are marked as hidden
-        :return: the image of the route
+        :param in_stock_colors: 分子边框颜色，默认为 `{True: "green", False: "orange"}`
+        :param show_all: 若为 `True`，也显示被标记为隐藏的节点
+        :return: 路线图像
         """
         factory = RouteImageFactory(
             self.to_dict(), in_stock_colors=in_stock_colors, show_all=show_all
@@ -241,9 +241,9 @@ class ReactionTree:
 
     def to_json(self, include_metadata=False) -> str:
         """
-        Returns the reaction tree as a JSON string in a pre-defined format.
+        按预定义格式将反应树转换为 JSON 字符串。
 
-        :return: the reaction tree
+        :return: JSON 字符串形式的反应树
         """
         return json.dumps(
             self.to_dict(include_metadata=include_metadata), sort_keys=False, indent=2
@@ -303,10 +303,9 @@ class ReactionTree:
 
 class ReactionTreeLoader(abc.ABC):
     """
-    Base class for classes that creates a reaction tree object
+    用于创建反应树对象的基类。
 
-    This class makes sure that node attributes are set after the
-    graph is generated, and provides utility methods.
+    该类负责在图生成后统一设置节点属性，并提供若干辅助方法。
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -362,7 +361,7 @@ class ReactionTreeLoader(abc.ABC):
 
 
 class ReactionTreeFromDict(ReactionTreeLoader):
-    """Creates a reaction tree object from a dictionary"""
+    """从字典创建反应树对象。"""
 
     def _load(self, tree_dict: StrDict) -> None:  # type: ignore
         if tree_dict.get("route_metadata"):
@@ -408,9 +407,9 @@ class ReactionTreeFromDict(ReactionTreeLoader):
 
 class ReactionTreeFromExpansion(ReactionTreeLoader):
     """
-    Create a ReactionTree from a single reaction
+    根据单个反应创建 `ReactionTree`。
 
-    This is mainly intended as a convenience function for the expander interface
+    这主要是为扩展器接口提供的便捷构造方式。
     """
 
     def _load(self, reaction: RetroReaction) -> None:  # type: ignore

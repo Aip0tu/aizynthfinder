@@ -1,5 +1,4 @@
-""" Module containing classes that interfaces different stocks query classes
-"""
+"""定义不同库存查询实现的模块。"""
 
 from __future__ import annotations
 
@@ -28,9 +27,9 @@ if TYPE_CHECKING:
 
 class StockQueryMixin:
     """
-    Mixin class for all query classes, providing a default interface
-    to some methods that might not be possible to implement for each
-    query class.
+    所有库存查询类共用的混入基类。
+
+    它为一些不一定适合所有查询后端的方法提供默认接口。
     """
 
     def __len__(self) -> int:
@@ -41,43 +40,42 @@ class StockQueryMixin:
 
     def amount(self, mol: Molecule) -> float:
         """
-        Returns the maximum amount of the molecule in stock
+        返回分子在库存中的最大可用数量。
 
-        :param mol: the query molecule
-        :raises StockException: if the amount cannot be computed
-        :return: the amount
+        :param mol: 查询分子
+        :raises StockException: 当数量无法计算时抛出
+        :return: 可用数量
         """
         raise StockException("Cannot compute amount")
 
     def availability_string(self, mol: Molecule) -> str:
         """
-        Returns the sources of the molecule
+        返回分子的来源信息。
 
-        :param mol: the query molecule
-        :raises StockException: if the string cannot be computed
-        :return: a comma-separated list of sources
+        :param mol: 查询分子
+        :raises StockException: 当来源字符串无法生成时抛出
+        :return: 以逗号分隔的来源列表
         """
         raise StockException("Cannot provide availability")
 
     def cached_search(self, mol: Molecule) -> bool:
         """
-        Finds the entries of the molecule in the stock and cache them
-        if necessary.
+        在库存中查找分子，并在需要时写入缓存。
 
-        :param mol: the query molecule
-        :return: if the molecule is in stock
+        :param mol: 查询分子
+        :return: 分子是否在库存中
         """
         return mol in self
 
     def clear_cache(self) -> None:
-        """Clear the internal search cache if available"""
+        """清空内部查询缓存（如果有）。"""
 
     def price(self, mol: Molecule) -> float:
         """
-        Returns the minimum price of the molecule in stock
+        返回分子在库存中的最低价格。
 
-        :param mol: the query molecule
-        :raises StockException: if the price cannot be computed
+        :param mol: 查询分子
+        :raises StockException: 当价格无法计算时抛出
         :rtype: float
         """
         raise StockException("Cannot compute price")
@@ -153,10 +151,12 @@ class InMemoryInchiKeyQuery(StockQueryMixin):
 
     @property
     def stock_inchikeys(self) -> Set[str]:
-        """Return the InChiKeys in this stock"""
+        """返回当前库存中的 InChIKey 集合。"""
         return self._stock_inchikeys
 
     def price(self, mol: Molecule) -> float:
+        """返回指定分子的价格信息。"""
+
         if not self._price_dict:
             raise StockException(
                 "no prices created, check the path type and if price column is supplied"
@@ -213,6 +213,8 @@ class MongoDbInchiKeyQuery(StockQueryMixin):
         return "'MongoDB stock'"
 
     def availability_string(self, mol: Molecule) -> str:
+        """返回指定分子在 MongoDB 库存中的来源字符串。"""
+
         sources = [
             item["source"] for item in self.molecules.find({"inchi_key": mol.inchi_key})
         ]

@@ -1,5 +1,4 @@
-""" Module containing a classes representation various tree nodes
-"""
+"""定义广度优先搜索树节点的模块。"""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -20,16 +19,16 @@ if TYPE_CHECKING:
 
 class MoleculeNode(TreeNodeMixin):
     """
-    An OR node representing a molecule
+    表示分子的 OR 节点。
 
-    :ivar expandable: if True, this node is part of the frontier
-    :ivar mol: the molecule represented by the node
-    :ivar in_stock: if True the molecule is in stock and hence should not be expanded
-    :ivar parent: the parent of the node
+    :ivar expandable: 若为 `True`，该节点位于搜索前沿
+    :ivar mol: 节点对应的分子
+    :ivar in_stock: 若为 `True`，分子已在库存中，无需继续扩展
+    :ivar parent: 父节点
 
-    :param mol: the molecule to be represented by the node
-    :param config: the configuration of the search
-    :param parent: the parent of the node, optional
+    :param mol: 节点要表示的分子
+    :param config: 搜索配置
+    :param parent: 父节点，可选
     """
 
     def __init__(
@@ -44,7 +43,7 @@ class MoleculeNode(TreeNodeMixin):
         self.parent = parent
 
         self._children: List[ReactionNode] = []
-        # Makes it unexpandable if we have reached maximum depth
+        # 达到最大深度后，该节点不再允许继续扩展。
         self.expandable = self.mol.transform < self._config.search.max_transforms
 
         if self.in_stock:
@@ -90,7 +89,7 @@ class MoleculeNode(TreeNodeMixin):
 
     @property  # type: ignore
     def children(self) -> List[ReactionNode]:  # type: ignore
-        """Gives the reaction children nodes"""
+        """返回反应子节点列表。"""
         return self._children
 
     @children.setter
@@ -99,14 +98,16 @@ class MoleculeNode(TreeNodeMixin):
 
     @property
     def prop(self) -> StrDict:
+        """返回节点的简要属性视图。"""
+
         return {"solved": self.in_stock, "mol": self.mol}
 
     def add_stub(self, reaction: RetroReaction) -> Sequence[MoleculeNode]:
         """
-        Add a stub / sub-tree to this node
+        为当前节点添加一个占位子树。
 
-        :param reaction: the reaction creating the stub
-        :return: list of all newly added molecular nodes
+        :param reaction: 用于创建该子树的反应
+        :return: 所有新建分子节点列表
         """
         reactants = reaction.reactants[reaction.index]
         if not reactants:
@@ -126,9 +127,9 @@ class MoleculeNode(TreeNodeMixin):
 
     def ancestors(self) -> Set[TreeMolecule]:
         """
-        Return the ancestors of this node
+        返回当前节点的祖先分子集合。
 
-        :return: the ancestors
+        :return: 祖先节点集合
         :rtype: set
         """
         if not self.parent:
@@ -140,10 +141,10 @@ class MoleculeNode(TreeNodeMixin):
 
     def serialize(self, molecule_store: MoleculeSerializer) -> StrDict:
         """
-        Serialize the node object to a dictionary
+        将节点对象序列化为字典。
 
-        :param molecule_store: the serialized molecules
-        :return: the serialized node
+        :param molecule_store: 分子序列化存储器
+        :return: 序列化后的节点字典
         """
         dict_: StrDict = {"expandable": self.expandable}
         dict_["mol"] = molecule_store[self.mol]
@@ -153,14 +154,14 @@ class MoleculeNode(TreeNodeMixin):
 
 class ReactionNode(TreeNodeMixin):
     """
-    An AND node representing a reaction
+    表示反应的 AND 节点。
 
-    :ivar parent: the parent of the node
-    :ivar reaction: the reaction represented by the node
+    :ivar parent: 父节点
+    :ivar reaction: 节点对应的反应
 
-    :param cost: the cost of the reaction
-    :param reaction: the reaction to be represented by the node
-    :param parent: the parent of the node
+    :param cost: 反应代价
+    :param reaction: 节点要表示的反应
+    :param parent: 父节点
     """
 
     def __init__(self, reaction: RetroReaction, parent: MoleculeNode) -> None:
@@ -177,12 +178,11 @@ class ReactionNode(TreeNodeMixin):
         config: Configuration,
     ) -> ReactionNode:
         """
-        Create a ReactionNode and creates all the MoleculeNode objects
-        that are the children of the node.
+        创建 `ReactionNode` 及其所有子 `MoleculeNode`。
 
-        :param reaction: the reaction to be represented by the node
-        :param parent: the parent of the node
-        :param config: the configuration of the search tree
+        :param reaction: 节点要表示的反应
+        :param parent: 父节点
+        :param config: 搜索树配置
         """
         node = cls(reaction, parent)
         reactants = reaction.reactants[reaction.index]
@@ -200,13 +200,13 @@ class ReactionNode(TreeNodeMixin):
         parent: MoleculeNode,
     ) -> ReactionNode:
         """
-        Create a new node from a dictionary, i.e. deserialization
+        从字典创建新节点，即执行反序列化。
 
-        :param dict_: the serialized node
-        :param config: the configuration of the tree search
-        :param molecules: the deserialized molecules
-        :param parent: the parent node
-        :return: a deserialized node
+        :param dict_: 序列化后的节点字典
+        :param config: 搜索树配置
+        :param molecules: 已反序列化的分子对象
+        :param parent: 父节点
+        :return: 反序列化得到的节点
         """
         reaction = deserialize_action(dict_["reaction"], molecules)
         node = cls(reaction, parent)
@@ -219,7 +219,7 @@ class ReactionNode(TreeNodeMixin):
 
     @property  # type: ignore
     def children(self) -> List[MoleculeNode]:  # type: ignore
-        """Gives the molecule children nodes"""
+        """返回分子子节点列表。"""
         return self._children
 
     @children.setter
@@ -228,14 +228,16 @@ class ReactionNode(TreeNodeMixin):
 
     @property
     def prop(self) -> StrDict:
+        """返回节点的简要属性视图。"""
+
         return {"solved": False, "reaction": self.reaction}
 
     def serialize(self, molecule_store: MoleculeSerializer) -> StrDict:
         """
-        Serialize the node object to a dictionary
+        将节点对象序列化为字典。
 
-        :param molecule_store: the serialized molecules
-        :return: the serialized node
+        :param molecule_store: 分子序列化存储器
+        :return: 序列化后的节点字典
         """
         dict_ = {
             "reaction": serialize_action(self.reaction, molecule_store),

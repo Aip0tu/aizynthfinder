@@ -1,5 +1,4 @@
-""" Module containing a class for encapsulating the settings of the tree search
-"""
+"""封装树搜索配置的模块。"""
 from __future__ import annotations
 
 import os
@@ -20,6 +19,8 @@ if TYPE_CHECKING:
 
 @dataclass
 class _PostprocessingConfiguration:
+    """定义路线后处理阶段的配置项。"""
+
     min_routes: int = 5
     max_routes: int = 25
     all_routes: bool = False
@@ -30,6 +31,8 @@ class _PostprocessingConfiguration:
 
 @dataclass
 class _SearchConfiguration:
+    """定义搜索算法及其运行时参数。"""
+
     algorithm: str = "mcts"
     algorithm_config: Dict[str, Any] = field(
         default_factory=lambda: {
@@ -56,8 +59,7 @@ class _SearchConfiguration:
 @dataclass
 class Configuration:
     """
-    Encapsulating the settings of the tree search, including the policy,
-    the stock, the loaded scorers and various parameters.
+    封装树搜索所需的全部配置，包括策略、库存、评分器及各类参数。
     """
 
     search: _SearchConfiguration = field(default_factory=_SearchConfiguration)
@@ -92,12 +94,13 @@ class Configuration:
     @classmethod
     def from_dict(cls, source: StrDict) -> "Configuration":
         """
-        Loads a configuration from a dictionary structure.
-        The parameters not set in the dictionary are taken from the default values.
-        The policies and stocks specified are directly loaded.
+        从字典结构加载配置。
 
-        :param source: the dictionary source
-        :return: a Configuration object with settings from the source
+        字典中未显式设置的参数会沿用默认值。
+        同时会直接加载配置中声明的策略和库存。
+
+        :param source: 配置字典来源
+        :return: 根据输入生成的 `Configuration` 对象
         """
         expansion_config = source.pop("expansion", {})
         filter_config = source.pop("filter", {})
@@ -118,17 +121,16 @@ class Configuration:
     @classmethod
     def from_file(cls, filename: str) -> "Configuration":
         """
-        Loads a configuration from a yaml file.
-        The parameters not set in the yaml file are taken from the default values.
-        The policies and stocks specified in the yaml file are directly loaded.
-        The parameters in the yaml file may also contain environment variables as
-        values.
+        从 yaml 文件加载配置。
 
-        :param filename: the path to a yaml file
-        :return: a Configuration object with settings from the yaml file
+        yaml 文件中未显式设置的参数会沿用默认值。
+        文件中声明的策略和库存会被直接加载。
+        参数值中也允许使用环境变量占位符。
+
+        :param filename: yaml 文件路径
+        :return: 从 yaml 文件构建得到的 `Configuration` 对象
         :raises:
-            ValueError: if parameter's value expects an environment variable that
-                does not exist in the current environment
+            ValueError: 当参数值引用了当前环境中不存在的环境变量时抛出
         """
         with open(filename, "r") as fileobj:
             txt = fileobj.read()
@@ -164,6 +166,8 @@ class Configuration:
 
 
 def _handle_bond_pair_tuples(bonds: List[List[int]]) -> List[List[int]]:
+    """规范化断裂键或冻结键配置中的键对列表。"""
+
     if not all(len(bond_pair) == 2 for bond_pair in bonds):
         raise ValueError("Lists of bond pairs to break/freeze should be of length 2")
     return [bond_pair[:2] for bond_pair in bonds]

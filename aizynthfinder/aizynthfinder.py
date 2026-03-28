@@ -1,5 +1,4 @@
-""" Module containing a class that is the main interface the retrosynthesis tool.
-"""
+"""包含逆合成工具主入口类的模块。"""
 from __future__ import annotations
 
 import time
@@ -23,7 +22,7 @@ from aizynthfinder.search.mcts import MctsSearchTree
 from aizynthfinder.utils.exceptions import MoleculeException
 from aizynthfinder.utils.loading import load_dynamic_class
 
-# This must be imported first to setup logging for rdkit, tensorflow etc
+# 必须最先导入，用于配置 rdkit、tensorflow 等依赖的日志。
 from aizynthfinder.utils.logging import logger
 
 if TYPE_CHECKING:
@@ -41,25 +40,24 @@ if TYPE_CHECKING:
 
 class AiZynthFinder:
     """
-    Public API to the aizynthfinder tool
+    `aizynthfinder` 工具的公开 API。
 
-    If instantiated with the path to a yaml file or dictionary of settings
-    the stocks and policy networks are loaded directly.
-    Otherwise, the user is responsible for loading them prior to
-    executing the tree search.
+    如果传入 yaml 配置文件路径或配置字典进行实例化，
+    库存与策略网络会被直接加载。
+    否则，用户需要在执行树搜索之前自行完成这些资源的加载。
 
-    :ivar config: the configuration of the search
-    :ivar expansion_policy: the expansion policy model
-    :ivar filter_policy: the filter policy model
-    :ivar stock: the stock
-    :ivar scorers: the loaded scores
-    :ivar tree: the search tree
-    :ivar analysis: the tree analysis
-    :ivar routes: the top-ranked routes
-    :ivar search_stats: statistics of the latest search
+    :ivar config: 搜索配置
+    :ivar expansion_policy: 扩展策略模型
+    :ivar filter_policy: 过滤策略模型
+    :ivar stock: 库存对象
+    :ivar scorers: 已加载的评分器
+    :ivar tree: 搜索树
+    :ivar analysis: 树分析对象
+    :ivar routes: 排名靠前的路线集合
+    :ivar search_stats: 最近一次搜索的统计信息
 
-    :param configfile: the path to yaml file with configuration (has priority over configdict), defaults to None
-    :param configdict: the config as a dictionary source, defaults to None
+    :param configfile: yaml 配置文件路径，优先级高于 `configdict`，默认为 `None`
+    :param configdict: 以字典形式传入的配置，默认为 `None`
     """
 
     def __init__(
@@ -89,7 +87,7 @@ class AiZynthFinder:
 
     @property
     def target_smiles(self) -> str:
-        """The SMILES representation of the molecule to predict routes on."""
+        """返回待预测路线目标分子的 SMILES 表示。"""
         if not self._target_mol:
             return ""
         return self._target_mol.smiles
@@ -100,7 +98,7 @@ class AiZynthFinder:
 
     @property
     def target_mol(self) -> Optional[Molecule]:
-        """The molecule to predict routes on"""
+        """返回待进行路线预测的目标分子。"""
         return self._target_mol
 
     @target_mol.setter
@@ -114,14 +112,13 @@ class AiZynthFinder:
         scorer: Optional[Union[str, List[str]]] = None,
     ) -> None:
         """
-        Build reaction routes
+        构建反应路线。
 
-        This is necessary to call after the tree search has completed in order
-        to extract results from the tree search.
+        树搜索完成后，需要调用此方法才能从搜索树中提取路线结果。
 
-        :param selection: the selection criteria for the routes
-        :param scorer: a reference to the object used to score the nodes, can be a list
-        :raises ValueError: if the search tree not initialized
+        :param selection: 路线筛选条件
+        :param scorer: 用于给节点打分的对象引用，也可以是列表
+        :raises ValueError: 当搜索树尚未初始化时抛出
         """
         self.analysis = self._setup_analysis(scorer=scorer)
         config_selection = RouteSelectionArguments(
@@ -134,7 +131,7 @@ class AiZynthFinder:
         )
 
     def extract_statistics(self) -> StrDict:
-        """Extracts tree statistics as a dictionary"""
+        """以字典形式提取搜索树统计信息。"""
         if not self.analysis:
             return {}
         stats = {
@@ -150,9 +147,9 @@ class AiZynthFinder:
 
     def prepare_tree(self) -> None:
         """
-        Setup the tree for searching
+        为搜索过程准备树结构。
 
-        :raises ValueError: if the target molecule was not set
+        :raises ValueError: 当目标分子尚未设置时抛出
         """
         if not self.target_mol:
             raise ValueError("No target molecule set")
@@ -181,12 +178,12 @@ class AiZynthFinder:
 
     def stock_info(self) -> StrDict:
         """
-        Return the stock availability for all leaf nodes in all collected reaction trees
+        返回已收集反应树中所有叶子节点的库存可用性。
 
-        The key of the return dictionary will be the SMILES string of the leaves,
-        and the value will be the stock availability
+        返回字典的键是叶子节点的 SMILES 字符串，
+        值是对应的库存可用性信息。
 
-        :return: the collected stock information.
+        :return: 收集得到的库存信息
         """
         if not self.analysis:
             return {}
@@ -199,14 +196,14 @@ class AiZynthFinder:
 
     def tree_search(self, show_progress: bool = False) -> float:
         """
-        Perform the actual tree search
+        执行实际的树搜索。
 
-        :param show_progress: if True, shows a progress bar
-        :return: the time past in seconds
+        :param show_progress: 若为 `True`，显示进度条
+        :return: 搜索耗时，单位为秒
         """
         if not self.tree:
             self.prepare_tree()
-        # This is for type checking, prepare_tree is creating it.
+        # 这里只是为了通过类型检查，`prepare_tree()` 会负责创建树。
         assert self.tree is not None
         self.search_stats = {"returned_first": False, "iterations": 0}
 
@@ -251,10 +248,10 @@ class AiZynthFinder:
 
     def _setup_focussed_bonds(self, target_mol: Molecule) -> None:
         """
-        Setup multi-objective scoring function with 'broken bonds'-scorer and
-        add 'frozen bonds'-filter to filter policy.
+        配置多目标评分函数中的 “broken bonds” 评分器，
+        并向过滤策略中添加 “frozen bonds” 过滤器。
 
-        :param target_mol: the target molecule.
+        :param target_mol: 目标分子
         """
         target_mol = TreeMolecule(smiles=target_mol.smiles, parent=None)
 
@@ -282,6 +279,7 @@ class AiZynthFinder:
             self._num_objectives = len(search_rewards)
 
     def _setup_search_tree(self) -> None:
+        """根据当前配置初始化搜索树实例。"""
         self._logger.debug(f"Defining tree root:  {self.target_smiles}")
         if self.config.search.algorithm.lower() == "mcts":
             self.tree = MctsSearchTree(
@@ -295,18 +293,18 @@ class AiZynthFinder:
         self,
         scorer: Optional[Union[str, List[str]]],
     ) -> TreeAnalysis:
-        """Configure TreeAnalysis
+        """配置 `TreeAnalysis` 实例。
 
-        :param scorer: a reference to the object used to score the nodes, can be a list
-        :returns: the configured TreeAnalysis
-        :raises ValueError: if the search tree not initialized
+        :param scorer: 用于给节点打分的对象引用，也可以是列表
+        :returns: 配置完成的 `TreeAnalysis`
+        :raises ValueError: 当搜索树尚未初始化时抛出
         """
         if not self.tree:
             raise ValueError("Search tree not initialized")
 
         if scorer is None:
             scorer_names = self.config.post_processing.route_scorers
-            # If not defined, use the same scorer as the search rewards
+            # 若未显式指定，则复用搜索阶段的奖励评分器。
             if not scorer_names:
                 search_rewards = self.config.search.algorithm_config.get(
                     "search_rewards"
@@ -319,7 +317,7 @@ class AiZynthFinder:
             scorer_names = list(scorer)
 
         if "broken bonds" in scorer_names:
-            # Add broken bonds scorer if required
+            # 按需补充 broken bonds 评分器。
             self.scorers.load(BrokenBondsScorer(self.config))
 
         scorers = [self.scorers[name] for name in scorer_names]
@@ -338,19 +336,18 @@ class AiZynthFinder:
 
 class AiZynthExpander:
     """
-    Public API to the AiZynthFinder expansion and filter policies
+    AiZynthFinder 扩展策略与过滤策略的公开 API。
 
-    If instantiated with the path to a yaml file or dictionary of settings
-    the stocks and policy networks are loaded directly.
-    Otherwise, the user is responsible for loading them prior to
-    executing the tree search.
+    如果传入 yaml 配置文件路径或配置字典进行实例化，
+    库存与策略网络会被直接加载。
+    否则，用户需要在执行树搜索之前自行完成这些资源的加载。
 
-    :ivar config: the configuration of the search
-    :ivar expansion_policy: the expansion policy model
-    :ivar filter_policy: the filter policy model
+    :ivar config: 搜索配置
+    :ivar expansion_policy: 扩展策略模型
+    :ivar filter_policy: 过滤策略模型
 
-    :param configfile: the path to yaml file with configuration (has priority over configdict), defaults to None
-    :param configdict: the config as a dictionary source, defaults to None
+    :param configfile: yaml 配置文件路径，优先级高于 `configdict`，默认为 `None`
+    :param configdict: 以字典形式传入的配置，默认为 `None`
     """
 
     def __init__(
@@ -376,23 +373,21 @@ class AiZynthExpander:
         filter_func: Optional[Callable[[RetroReaction], bool]] = None,
     ) -> List[Tuple[FixedRetroReaction, ...]]:
         """
-        Do the expansion of the given molecule returning a list of
-        reaction tuples. Each tuple in the list contains reactions
-        producing the same reactants. Hence, nested structure of the
-        return value is way to group reactions.
+        对给定分子执行扩展，并返回反应元组列表。
 
-        If filter policy is setup, the probability of the reactions are
-        added as metadata to the reaction.
+        返回列表中的每个元组都包含生成相同反应物的一组反应，
+        因而这种嵌套结构也承担了反应分组的作用。
 
-        The additional filter functions makes it possible to do customized
-        filtering. The callable should take as only argument a `RetroReaction`
-        object and return True if the reaction can be kept or False if it should
-        be removed.
+        如果已配置过滤策略，会将反应的可行性概率添加到反应元数据中。
 
-        :param smiles: the SMILES string of the target molecule
-        :param return_n: the length of the return list
-        :param filter_func: an additional filter function
-        :return: the grouped reactions
+        额外的过滤函数可用于实现自定义筛选。
+        该可调用对象应仅接收一个 `RetroReaction` 参数；
+        返回 `True` 表示保留该反应，返回 `False` 表示移除该反应。
+
+        :param smiles: 目标分子的 SMILES 字符串
+        :param return_n: 返回列表的最大长度
+        :param filter_func: 额外的过滤函数
+        :return: 按反应物分组后的反应集合
         """
         self.stats = {"non-applicable": 0}
 

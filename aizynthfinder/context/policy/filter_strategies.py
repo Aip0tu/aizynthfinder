@@ -1,5 +1,4 @@
-""" Module containing classes that implements different filter policy strategies
-"""
+"""实现不同过滤策略的模块。"""
 
 from __future__ import annotations
 
@@ -57,11 +56,12 @@ class FilterStrategy(abc.ABC):
     @abc.abstractmethod
     def apply(self, reaction: RetroReaction) -> None:
         """
-        Apply the filter on the reaction. If the reaction
-        should be rejected a `RejectionException` is raised
+        对反应执行过滤。
 
-        :param reaction: the reaction to filter
-        :raises: if the reaction should be rejected.
+        如果反应应被拒绝，则抛出 `RejectionException`。
+
+        :param reaction: 待过滤的反应
+        :raises: 当反应应被拒绝时抛出异常
         """
 
 
@@ -84,6 +84,8 @@ class BondFilter(FilterStrategy):
         )
 
     def apply(self, reaction: RetroReaction) -> None:
+        """检查被冻结的关注键是否在反应中被断开。"""
+
         broken_frozen_bonds = self._broken_bonds(reaction)
         if len(broken_frozen_bonds) > 0:
             raise RejectionException(
@@ -120,6 +122,8 @@ class QuickKerasFilter(FilterStrategy):
         self.filter_cutoff: float = float(kwargs.get("filter_cutoff", 0.05))
 
     def apply(self, reaction: RetroReaction) -> None:
+        """对单个反应执行快速可行性过滤。"""
+
         if reaction.metadata.get("policy_name", "") in self._exclude_from_policy:
             return
 
@@ -129,11 +133,10 @@ class QuickKerasFilter(FilterStrategy):
 
     def feasibility(self, reaction: RetroReaction) -> Tuple[bool, float]:
         """
-        Computes if a given reaction is feasible by given
-        the reaction fingerprint to a network model
+        通过将反应指纹输入网络模型，判断给定反应是否可行。
 
-        :param reaction: the reaction to query
-        :return: if the reaction is feasible
+        :param reaction: 待判断的反应
+        :return: 是否可行及其概率
         """
         if not reaction.reactants:
             return False, 0.0
@@ -169,6 +172,8 @@ class ReactantsCountFilter(FilterStrategy):
         self._logger.info(f"Loading reactants count filter to {key}")
 
     def apply(self, reaction: RetroReaction) -> None:
+        """检查反应物数量是否与模板预期一致。"""
+
         if not isinstance(reaction, TemplatedRetroReaction):
             raise ValueError(
                 "Reactants count filter can only be used on templated retro reaction "
@@ -201,8 +206,10 @@ class FrozenSubstructureFilter(FilterStrategy):
         )
 
     def apply(self, reaction: RetroReaction) -> None:
+        """拒绝会破坏冻结子结构的反应。"""
+
         for mol in self._mol_lists:
-            # If it did not exists in the product, we cannot expect it to be present in the reactants
+            # 如果该子结构在产物中本就不存在，就不要求它出现在反应物里。
             if not reaction.mol.rd_mol.HasSubstructMatch(mol):
                 continue
 

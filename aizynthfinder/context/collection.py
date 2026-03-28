@@ -1,5 +1,4 @@
-""" Module containing a class that is the base class for all collection classes (stock, policies, scorers)
-"""
+"""定义各类集合对象基类的模块，例如库存、策略和评分器集合。"""
 from __future__ import annotations
 
 import abc
@@ -13,16 +12,15 @@ if TYPE_CHECKING:
 
 class ContextCollection(abc.ABC):
     """
-    Abstract base class for a collection of items
-    that can be loaded and then (de-)selected.
+    可加载并支持选择/取消选择操作的集合抽象基类。
 
-     One can obtain individual items with:
+    可以通过以下方式获取单个条目：
 
     .. code-block::
 
         an_item = collection["key"]
 
-    And delete items with
+    也可以通过以下方式删除条目：
 
     .. code-block::
 
@@ -58,12 +56,12 @@ class ContextCollection(abc.ABC):
 
     @property
     def items(self) -> List[str]:
-        """The available item keys"""
+        """返回当前可用条目的键列表。"""
         return list(self._items.keys())
 
     @property
     def selection(self) -> Union[List[str], str, None]:
-        """The keys of the selected item(s)"""
+        """返回当前被选中的条目键。"""
         if self._single_selection:
             return self._selection[0] if self._selection else None
         return self._selection
@@ -74,12 +72,12 @@ class ContextCollection(abc.ABC):
 
     def deselect(self, key: Optional[str] = None) -> None:
         """
-        Deselect one or all items
+        取消一个或全部条目的选择状态。
 
-        If no key is passed, all items will be deselected.
+        如果未传入键，则会取消全部选择。
 
-        :param key: the key of the item to deselect, defaults to None
-        :raises KeyError: if the key is not among the selected ones
+        :param key: 要取消选择的条目键，默认为 `None`
+        :raises KeyError: 当指定键当前并未被选中时抛出
         """
         if not key:
             self._selection = []
@@ -91,24 +89,24 @@ class ContextCollection(abc.ABC):
 
     @abc.abstractmethod
     def load(self, *_: Any) -> None:
-        """Load an item. Needs to be implemented by a sub-class"""
+        """加载单个条目，由子类实现。"""
 
     @abc.abstractmethod
     def load_from_config(self, **config: Any) -> None:
-        """Load items from a configuration. Needs to be implemented by a sub-class"""
+        """根据配置加载条目，由子类实现。"""
 
     def select(self, value: Union[str, List[str]], append: bool = False) -> None:
         """
-        Select one or more items.
+        选择一个或多个条目。
 
-        If this is a single selection collection, only a single value is accepted.
-        If this is a multiple selection collection it will overwrite the selection completely,
-        unless ``append`` is True and a single key is given.
+        对于单选集合，只接受单个值。
+        对于多选集合，默认会覆盖当前选择；
+        只有在 `append=True` 且传入单个键时才会追加。
 
-        :param value: the key or keys of the item(s) to select
-        :param append: if True will append single keys to existing selection
-        :raises ValueError: if this a single collection and value is multiple keys
-        :raises KeyError: if at least one of the keys are not corresponding to a loaded item
+        :param value: 要选择的条目键或键列表
+        :param append: 若为 `True`，则把单个键追加到当前选择中
+        :raises ValueError: 当单选集合却传入多个键时抛出
+        :raises KeyError: 当任意一个键未对应已加载条目时抛出
         """
         if self._single_selection and not isinstance(value, str) and len(value) > 1:
             raise ValueError(f"Cannot select more than one {self._collection_name}")
@@ -131,16 +129,16 @@ class ContextCollection(abc.ABC):
         self._logger.info(f"Selected as {self._collection_name}: {', '.join(keys)}")
 
     def select_all(self) -> None:
-        """Select all loaded items"""
+        """选择所有已加载条目。"""
         if self.items:
             self.select(self.items)
 
     def select_first(self) -> None:
-        """Select the first loaded item"""
+        """选择第一个已加载条目。"""
         if self.items:
             self.select(self.items[0])
 
     def select_last(self) -> None:
-        """Select the last loaded item"""
+        """选择最后一个已加载条目。"""
         if self.items:
             self.select(self.items[-1])

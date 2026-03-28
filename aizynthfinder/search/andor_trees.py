@@ -1,4 +1,4 @@
-""" Module for base classes for AND/OR trees and some tree utility code """
+"""AND/OR 搜索树基础类与辅助工具。"""
 from __future__ import annotations
 
 import abc
@@ -18,21 +18,21 @@ if TYPE_CHECKING:
 
 
 class TreeNodeMixin:
-    """A mixin class for node in a tree"""
+    """树节点通用混入类。"""
 
     @property
     def prop(self) -> StrDict:
-        """Dictionary with publicly exposed properties"""
+        """返回对外暴露的属性字典。"""
         return {}
 
     @property
     def children(self) -> List["TreeNodeMixin"]:
-        """List of children nodes"""
+        """返回子节点列表。"""
         return []
 
 
 class AndOrSearchTreeBase(abc.ABC):
-    """A base class for a search tree based on an AND/OR structure"""
+    """基于 AND/OR 结构的搜索树基类。"""
 
     def __init__(
         self, config: Configuration, root_smiles: Optional[str] = None
@@ -42,36 +42,34 @@ class AndOrSearchTreeBase(abc.ABC):
 
     @property
     def mol_nodes(self) -> List[TreeNodeMixin]:
-        """Return the molecule nodes of the tree"""
+        """返回树中的分子节点列表。"""
         return []
 
     @abc.abstractmethod
     def one_iteration(self) -> bool:
-        """Perform one iteration of the search"""
+        """执行一次搜索迭代。"""
         return False
 
     @abc.abstractmethod
     def routes(self) -> List[ReactionTree]:
-        """Return the routes of the tree"""
+        """返回树中提取出的路线。"""
         return []
 
 
 class SplitAndOrTree:
     """
-    Encapsulation of an algorithm to split an AND/OR tree into separate routes
+    将 AND/OR 树拆分为多条独立路线的算法封装。
 
-    This is a modified algorithm of the one detailed in the CompRet paper:
+    这是对 CompRet 论文中算法的一个改写版本：
     Shibukawa et al. (2020) J. Cheminf. 12, 52
 
-    This implementation sets an upper-bound on the number of extracted routes
-    to avoid combinatorial explosion.
+    该实现会为提取路线数量设置上限，以避免组合爆炸。
 
-    The routes are extracted on instantiation and the routes can be access from
-    the `routes` attribute.
+    路线会在实例化时直接提取，结果可通过 `routes` 属性访问。
 
-    :param root_node: the root of the AND/OR tree
-    :param stock: the stock of the search
-    :param max_routes: the maximum number of routes to extract
+    :param root_node: AND/OR 树根节点
+    :param stock: 搜索使用的库存对象
+    :param max_routes: 最多提取的路线数
     """
 
     def __init__(
@@ -127,8 +125,7 @@ class SplitAndOrTree:
         self._partition_search_tree(graph_copy, node)
 
     def _select_child_node(self, children: List[TreeNodeMixin]) -> TreeNodeMixin:
-        # This is what makes this algorithm different from what was
-        # detailed in the CompRet paper
+        # 这里是该实现与 CompRet 论文原始算法不同的关键点。
         if not self._sampling_cutoff:
             return children[0]
 
@@ -153,13 +150,15 @@ class _AndOrTrace(nx.DiGraph):
 
     @property
     def first_reaction(self) -> TreeNodeMixin:
-        """Return the first reaction or raise an exception"""
+        """返回第一步反应；如果不存在则触发断言。"""
         assert self._first_reaction is not None
         return self._first_reaction
 
     def add_edge(
         self, u_of_edge: TreeNodeMixin, v_of_edge: TreeNodeMixin, **attr: Any
     ) -> None:
+        """添加边，并在需要时记录首个反应节点。"""
+
         if u_of_edge is self.root:
             if self._first_reaction is not None:
                 raise ValueError(
@@ -169,6 +168,8 @@ class _AndOrTrace(nx.DiGraph):
         super().add_edge(u_of_edge, v_of_edge, **attr)
 
     def copy(self, as_view: bool = False) -> "_AndOrTrace":
+        """复制当前跟踪图，并保留根节点与首反应信息。"""
+
         other = super().copy(as_view)
         assert isinstance(other, _AndOrTrace)
         other.root = self.root
@@ -177,7 +178,7 @@ class _AndOrTrace(nx.DiGraph):
 
 
 class ReactionTreeFromAndOrTrace(ReactionTreeLoader):
-    """Creates a reaction tree object from an AND/OR Trace"""
+    """根据 AND/OR 跟踪图创建反应树对象。"""
 
     def _load(self, andor_trace: nx.DiGraph, stock: Stock) -> None:  # type: ignore
         """

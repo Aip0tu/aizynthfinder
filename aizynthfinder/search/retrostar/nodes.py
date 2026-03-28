@@ -1,5 +1,4 @@
-""" Module containing a classes representation various tree nodes
-"""
+"""定义 Retro* 搜索树节点的模块。"""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -23,19 +22,19 @@ if TYPE_CHECKING:
 
 class MoleculeNode(TreeNodeMixin):
     """
-    An OR node representing a molecule
+    表示分子的 OR 节点。
 
-    :ivar cost: the cost of synthesizing the molecule
-    :ivar expandable: if True, this node is part of the frontier
-    :ivar mol: the molecule represented by the node
-    :ivar in_stock: if True the molecule is in stock and hence should not be expanded
-    :ivar parent: the parent of the node
-    :ivar solved: if True the molecule is in stock or at least one child node is solved
-    :ivar value: the current rn(m|T)
+    :ivar cost: 合成该分子的代价
+    :ivar expandable: 若为 `True`，该节点位于搜索前沿
+    :ivar mol: 节点对应的分子
+    :ivar in_stock: 若为 `True`，分子已在库存中，无需继续扩展
+    :ivar parent: 父节点
+    :ivar solved: 若为 `True`，说明分子已在库存中或至少有一个子节点已求解
+    :ivar value: 当前 `rn(m|T)` 值
 
-    :param mol: the molecule to be represented by the node
-    :param config: the configuration of the search
-    :param parent: the parent of the node, optional
+    :param mol: 节点要表示的分子
+    :param config: 搜索配置
+    :param parent: 父节点，可选
     """
 
     def __init__(
@@ -55,7 +54,7 @@ class MoleculeNode(TreeNodeMixin):
 
         self._children: List[ReactionNode] = []
         self.solved = self.in_stock
-        # Makes it unexpandable if we have reached maximum depth
+        # 达到最大深度后，该节点不再允许继续扩展。
         self.expandable = self.mol.transform < self._config.search.max_transforms
 
         if self.in_stock:
@@ -67,11 +66,11 @@ class MoleculeNode(TreeNodeMixin):
         cls, smiles: str, config: Configuration, molecule_cost: MoleculeCost
     ) -> "MoleculeNode":
         """
-        Create a root node for a tree using a SMILES.
+        使用给定的 SMILES 创建树根节点。
 
-        :param smiles: the SMILES representation of the root state
-        :param config: settings of the tree search algorithm
-        :return: the created node
+        :param smiles: 根状态对应的 SMILES 表示
+        :param config: 树搜索算法配置
+        :return: 创建好的根节点
         """
         mol = TreeMolecule(parent=None, transform=0, smiles=smiles)
         return MoleculeNode(mol=mol, config=config, molecule_cost=molecule_cost)
@@ -86,13 +85,13 @@ class MoleculeNode(TreeNodeMixin):
         parent: Optional[ReactionNode] = None,
     ) -> "MoleculeNode":
         """
-        Create a new node from a dictionary, i.e. deserialization
+        从字典创建新节点，即执行反序列化。
 
-        :param dict_: the serialized node
-        :param config: settings of the tree search algorithm
-        :param molecules: the deserialized molecules
-        :param parent: the parent node
-        :return: a deserialized node
+        :param dict_: 序列化后的节点字典
+        :param config: 树搜索算法配置
+        :param molecules: 已反序列化的分子对象
+        :param parent: 父节点
+        :return: 反序列化得到的节点
         """
         mol = molecules.get_tree_molecules([dict_["mol"]])[0]
         node = MoleculeNode(mol, config, molecule_cost, parent)
@@ -109,7 +108,7 @@ class MoleculeNode(TreeNodeMixin):
 
     @property  # type: ignore
     def children(self) -> List[ReactionNode]:  # type: ignore
-        """Gives the reaction children nodes"""
+        """返回反应子节点列表。"""
         return self._children
 
     @children.setter
@@ -119,10 +118,10 @@ class MoleculeNode(TreeNodeMixin):
     @property
     def target_value(self) -> float:
         """
-        The V_t(m|T) value,
-        the current cost of the tree containing this node
+        返回 `V_t(m|T)` 值，
+        即包含该节点的当前树代价。
 
-        :return: the value
+        :return: 当前目标值
         """
         if self.parent:
             return self.parent.target_value
@@ -130,15 +129,17 @@ class MoleculeNode(TreeNodeMixin):
 
     @property
     def prop(self) -> StrDict:
+        """返回节点的简要属性视图。"""
+
         return {"solved": self.solved, "mol": self.mol}
 
     def add_stub(self, cost: float, reaction: RetroReaction) -> Sequence[MoleculeNode]:
         """
-        Add a stub / sub-tree to this node
+        为当前节点添加一个占位子树。
 
-        :param cost: the cost of the reaction
-        :param reaction: the reaction creating the stub
-        :return: list of all newly added molecular nodes
+        :param cost: 反应代价
+        :param reaction: 用于创建该子树的反应
+        :return: 所有新建分子节点列表
         """
         reactants = reaction.reactants[reaction.index]
         if not reactants:
@@ -161,9 +162,9 @@ class MoleculeNode(TreeNodeMixin):
 
     def ancestors(self) -> Set[TreeMolecule]:
         """
-        Return the ancestors of this node
+        返回当前节点的祖先分子集合。
 
-        :return: the ancestors
+        :return: 祖先节点集合
         :rtype: set
         """
         if not self.parent:
@@ -175,9 +176,9 @@ class MoleculeNode(TreeNodeMixin):
 
     def close(self) -> float:
         """
-        Updates the values of this node after expanding it.
+        在节点展开后更新其数值。
 
-        :return: the delta V value
+        :return: `V` 值的变化量
         :rtype: float
         """
         self.solved = any(child.solved for child in self.children)
@@ -194,10 +195,10 @@ class MoleculeNode(TreeNodeMixin):
 
     def serialize(self, molecule_store: MoleculeSerializer) -> StrDict:
         """
-        Serialize the node object to a dictionary
+        将节点对象序列化为字典。
 
-        :param molecule_store: the serialized molecules
-        :return: the serialized node
+        :param molecule_store: 分子序列化存储器
+        :return: 序列化后的节点字典
         """
         dict_ = {attr: getattr(self, attr) for attr in ["cost", "expandable", "value"]}
         dict_["mol"] = molecule_store[self.mol]
@@ -206,10 +207,10 @@ class MoleculeNode(TreeNodeMixin):
 
     def update(self, solved: bool) -> None:
         """
-        Update the node as part of the update algorithm,
-        calling the `update()` method of its parent if available.
+        作为更新算法的一部分刷新当前节点，
+        并在需要时继续向父节点传播。
 
-        :param solved: if the child node was solved
+        :param solved: 子节点是否已求解
         """
         new_value = np.min([child.value for child in self.children])
         new_solv = self.solved or solved
@@ -225,18 +226,18 @@ class MoleculeNode(TreeNodeMixin):
 
 class ReactionNode(TreeNodeMixin):
     """
-    An AND node representing a reaction
+    表示反应的 AND 节点。
 
-    :ivar cost: the cost of the reaction
-    :ivar parent: the parent of the node
-    :ivar reaction: the reaction represented by the node
-    :ivar solved: if True all children nodes are solved
-    :ivar target_value: the V(m|T) for the children, the current cost
-    :ivar value: the current rn(r|T)
+    :ivar cost: 反应代价
+    :ivar parent: 父节点
+    :ivar reaction: 节点对应的反应
+    :ivar solved: 若为 `True`，说明所有子节点均已求解
+    :ivar target_value: 子节点对应的 `V(m|T)` 当前值
+    :ivar value: 当前 `rn(r|T)` 值
 
-    :param cost: the cost of the reaction
-    :param reaction: the reaction to be represented by the node
-    :param parent: the parent of the node
+    :param cost: 反应代价
+    :param reaction: 节点要表示的反应
+    :param parent: 父节点
     """
 
     def __init__(
@@ -250,7 +251,7 @@ class ReactionNode(TreeNodeMixin):
         self.solved = False
         # rn(R|T)
         self.value = self.cost
-        # V(R|T) = V(m|T) for m in children
+        # V(R|T) = 子节点对应的 V(m|T)
         self.target_value = self.parent.target_value - self.parent.value + self.value
 
     @classmethod
@@ -262,13 +263,12 @@ class ReactionNode(TreeNodeMixin):
         config: Configuration,
     ) -> ReactionNode:
         """
-        Create a ReactionNode and creates all the MoleculeNode objects
-        that are the children of the node.
+        创建 `ReactionNode` 及其所有子 `MoleculeNode`。
 
-        :param cost: the cost of the reaction
-        :param reaction: the reaction to be represented by the node
-        :param parent: the parent of the node
-        :param config: the configuration of the search tree
+        :param cost: 反应代价
+        :param reaction: 节点要表示的反应
+        :param parent: 父节点
+        :param config: 搜索树配置
         """
         node = cls(cost, reaction, parent)
         reactants = reaction.reactants[reaction.index]
@@ -295,13 +295,13 @@ class ReactionNode(TreeNodeMixin):
         parent: MoleculeNode,
     ) -> ReactionNode:
         """
-        Create a new node from a dictionary, i.e. deserialization
+        从字典创建新节点，即执行反序列化。
 
-        :param dict_: the serialized node
-        :param config: the configuration of the tree search
-        :param molecules: the deserialized molecules
-        :param parent: the parent node
-        :return: a deserialized node
+        :param dict_: 序列化后的节点字典
+        :param config: 搜索树配置
+        :param molecules: 已反序列化的分子对象
+        :param parent: 父节点
+        :return: 反序列化得到的节点
         """
         reaction = deserialize_action(dict_["reaction"], molecules)
         node = cls(0, reaction, parent)
@@ -316,7 +316,7 @@ class ReactionNode(TreeNodeMixin):
 
     @property  # type: ignore
     def children(self) -> List[MoleculeNode]:  # type: ignore
-        """Gives the molecule children nodes"""
+        """返回分子子节点列表。"""
         return self._children
 
     @children.setter
@@ -325,14 +325,16 @@ class ReactionNode(TreeNodeMixin):
 
     @property
     def prop(self) -> StrDict:
+        """返回节点的简要属性视图。"""
+
         return {"solved": self.solved, "reaction": self.reaction}
 
     def serialize(self, molecule_store: MoleculeSerializer) -> StrDict:
         """
-        Serialize the node object to a dictionary
+        将节点对象序列化为字典。
 
-        :param molecule_store: the serialized molecules
-        :return: the serialized node
+        :param molecule_store: 分子序列化存储器
+        :return: 序列化后的节点字典
         """
         dict_ = {
             attr: getattr(self, attr) for attr in ["cost", "value", "target_value"]
@@ -343,11 +345,11 @@ class ReactionNode(TreeNodeMixin):
 
     def update(self, value: float, from_mol: Optional[TreeMolecule] = None) -> None:
         """
-        Update the node as part of the update algorithm,
-        calling the `update()` method of its parent
+        作为更新算法的一部分刷新当前节点，
+        并继续向父节点传播。
 
-        :param value: the delta V value
-        :param from_mol: the molecule being expanded, used for excluding propagation
+        :param value: `V` 值变化量
+        :param from_mol: 当前正在扩展的分子，用于避免重复传播
         """
         self.value += value
         self.target_value += value

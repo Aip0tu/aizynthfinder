@@ -1,5 +1,4 @@
-""" Module containing a classes representation various tree nodes
-"""
+"""定义 DFPN 搜索中各类树节点的模块。"""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -19,10 +18,12 @@ BIG_INT = int(1e10)
 
 
 class _SuperNode(TreeNodeMixin):
+    """DFPN 节点的公共基类，负责维护证明数与反证数。"""
+
     def __init__(self) -> None:
         # pylint: disable=invalid-name
-        self.pn = 1  # Proof-number
-        self.dn = 1  # Disproof-number
+        self.pn = 1  # 证明数
+        self.dn = 1  # 反证数
         self.pn_threshold = BIG_INT
         self.dn_threshold = BIG_INT
         self._children: List["_SuperNode"] = []
@@ -30,32 +31,32 @@ class _SuperNode(TreeNodeMixin):
 
     @property  # type: ignore
     def children(self) -> List[ReactionNode]:  # type: ignore
-        """Gives the reaction children nodes"""
+        """返回反应子节点列表。"""
         return self._children  # type: ignore
 
     @property
     def closed(self) -> bool:
-        """Return if the node is proven or disproven"""
+        """返回节点是否已经被证明或反证。"""
         return self.proven or self.disproven
 
     @property
     def proven(self) -> bool:
-        """Return if the node is proven"""
+        """返回节点是否已被证明。"""
         return self.pn == 0
 
     @property
     def disproven(self) -> bool:
-        """Return if the node is disproven"""
+        """返回节点是否已被反证。"""
         return self.dn == 0
 
     def explorable(self) -> bool:
-        """Return if the node can be explored by the search algorithm"""
+        """返回该节点是否仍可被搜索算法继续探索。"""
         return not (
             self.closed or self.pn > self.pn_threshold or self.dn > self.dn_threshold
         )
 
     def reset(self) -> None:
-        """Reset the thresholds"""
+        """重置当前节点及其子节点的阈值。"""
         if self.closed or self.expandable:
             return
         for child in self._children:
@@ -65,7 +66,7 @@ class _SuperNode(TreeNodeMixin):
         self.dn_threshold = BIG_INT
 
     def update(self) -> None:
-        """Update the proof and disproof numbers"""
+        """更新证明数与反证数。"""
         raise NotImplementedError("Implement a child class")
 
     def _set_disproven(self) -> None:
@@ -79,20 +80,20 @@ class _SuperNode(TreeNodeMixin):
 
 class MoleculeNode(_SuperNode):
     """
-    An OR node representing a molecule
+    表示分子的 OR 节点。
 
-    :ivar expandable: if True, this node is part of the frontier
-    :ivar mol: the molecule represented by the node
-    :ivar in_stock: if True the molecule is in stock and hence should not be expanded
-    :ivar parent: the parent of the node
-    :ivar pn: the proof number
-    :ivar dn: the disproof number
-    :ivar pn_threshold: the threshold for proof number
-    :ivar dn_threshold: the threshold for disproof number
+    :ivar expandable: 若为 `True`，说明该节点位于搜索前沿
+    :ivar mol: 节点对应的分子
+    :ivar in_stock: 若为 `True`，说明分子已在库存中，无需继续扩展
+    :ivar parent: 父节点
+    :ivar pn: 证明数
+    :ivar dn: 反证数
+    :ivar pn_threshold: 证明数阈值
+    :ivar dn_threshold: 反证数阈值
 
-    :param mol: the molecule to be represented by the node
-    :param config: the configuration of the search
-    :param parent: the parent of the node, optional
+    :param mol: 节点要表示的分子
+    :param config: 搜索配置
+    :param parent: 父节点，可选
     """
 
     def __init__(
@@ -111,7 +112,7 @@ class MoleculeNode(_SuperNode):
         self._edge_costs: List[int] = []
         self.tree = owner
 
-        # Makes it unexpandable if we have reached maximum depth
+        # 达到最大深度后，该节点不再允许继续扩展。
         self.expandable = self.mol.transform < self._config.search.max_transforms
 
         if self.in_stock:
@@ -125,21 +126,23 @@ class MoleculeNode(_SuperNode):
         cls, smiles: str, config: Configuration, owner: SearchTree
     ) -> "MoleculeNode":
         """
-        Create a root node for a tree using a SMILES.
+        使用给定的 SMILES 创建树根节点。
 
-        :param smiles: the SMILES representation of the root state
-        :param config: settings of the tree search algorithm
-        :return: the created node
+        :param smiles: 根状态对应的 SMILES 表示
+        :param config: 树搜索算法配置
+        :return: 创建好的根节点
         """
         mol = TreeMolecule(parent=None, transform=0, smiles=smiles)
         return MoleculeNode(mol=mol, config=config, owner=owner)
 
     @property
     def prop(self) -> StrDict:
+        """返回节点的简要属性视图。"""
+
         return {"solved": self.proven, "mol": self.mol}
 
     def expand(self) -> None:
-        """Expand the molecule by utilising an expansion policy"""
+        """利用扩展策略展开当前分子节点。"""
         self.expandable = False
         reactions, priors = self._config.expansion_policy([self.mol])
         self.tree.profiling["expansion_calls"] += 1
@@ -172,8 +175,9 @@ class MoleculeNode(_SuperNode):
 
     def promising_child(self) -> Optional[ReactionNode]:
         """
-        Find and return the most promising child for exploration
-        Updates the thresholds on that child
+        找出并返回当前最值得继续探索的子节点。
+
+        同时会更新该子节点的阈值。
         """
         min_indices = np.argsort(
             [
@@ -194,7 +198,7 @@ class MoleculeNode(_SuperNode):
         return best_child
 
     def update(self) -> None:
-        """Update the proof and disproof numbers"""
+        """更新证明数与反证数。"""
         func = all if self.parent is None else any
         if func(child.proven for child in self._children):
             self._set_proven()
@@ -247,19 +251,19 @@ class MoleculeNode(_SuperNode):
 
 class ReactionNode(_SuperNode):
     """
-    An AND node representing a reaction
+    表示反应的 AND 节点。
 
-    :ivar parent: the parent of the node
-    :ivar reaction: the reaction represented by the node
-    :ivar pn: the proof number
-    :ivar dn: the disproof number
-    :ivar pn_threshold: the threshold for proof number
-    :ivar dn_threshold: the threshold for disproof number
-    :ivar expandable: if the node is expandable
+    :ivar parent: 父节点
+    :ivar reaction: 节点对应的反应
+    :ivar pn: 证明数
+    :ivar dn: 反证数
+    :ivar pn_threshold: 证明数阈值
+    :ivar dn_threshold: 反证数阈值
+    :ivar expandable: 节点是否可继续扩展
 
-    :param reaction: the reaction to be represented by the node
-    :param config: the configuration of the search
-    :param parent: the parent of the node
+    :param reaction: 节点要表示的反应
+    :param config: 搜索配置
+    :param parent: 父节点
     """
 
     def __init__(
@@ -277,16 +281,18 @@ class ReactionNode(_SuperNode):
 
     @property  # type: ignore
     def children(self) -> List[MoleculeNode]:  # type: ignore
-        """Gives the molecule children nodes"""
+        """返回分子子节点列表。"""
         return self._children  # type: ignore
 
     @property
     def prop(self) -> StrDict:
+        """返回节点的简要属性视图。"""
+
         return {"solved": self.proven, "reaction": self.reaction}
 
     @property
     def proven(self) -> bool:
-        """Return if the node is proven"""
+        """返回节点是否已被证明。"""
         if self.expandable:
             return False
         if self.pn == 0:
@@ -295,7 +301,7 @@ class ReactionNode(_SuperNode):
 
     @property
     def disproven(self) -> bool:
-        """Return if the node is disproven"""
+        """返回节点是否已被反证。"""
         if self.expandable:
             return False
         if self.dn == 0:
@@ -303,7 +309,7 @@ class ReactionNode(_SuperNode):
         return any(child.disproven for child in self._children)
 
     def expand(self) -> None:
-        """Expand the node by creating nodes for each reactant"""
+        """为每个反应物创建节点，从而展开当前反应节点。"""
         self.expandable = False
         reactants = self.reaction.reactants[self.reaction.index]
         self._children = [
@@ -313,8 +319,9 @@ class ReactionNode(_SuperNode):
 
     def promising_child(self) -> Optional[MoleculeNode]:
         """
-        Find and return the most promising child for exploration
-        Updates the thresholds on that child
+        找出并返回当前最值得继续探索的子节点。
+
+        同时会更新该子节点的阈值。
         """
         min_indices = np.argsort(
             [child.dn if not child.closed else BIG_INT for child in self._children]
@@ -331,7 +338,7 @@ class ReactionNode(_SuperNode):
         return best_child
 
     def update(self) -> None:
-        """Update the proof and disproof numbers"""
+        """更新证明数与反证数。"""
         if all(child.proven for child in self._children):
             self._set_proven()
             return

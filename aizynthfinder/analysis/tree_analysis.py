@@ -1,5 +1,4 @@
-""" Module containing classes to perform analysis of the tree search results.
-"""
+"""用于分析树搜索结果的模块。"""
 
 from __future__ import annotations
 
@@ -41,14 +40,13 @@ if TYPE_CHECKING:
 
 class TreeAnalysis:
     """
-    Class that encapsulate various analysis that can be
-    performed on a search tree.
+    封装对搜索树进行的多种分析操作。
 
-    :ivar scorers: the objects used to score the nodes
-    :ivar search_tree: the search tree
+    :ivar scorers: 用于给节点打分的评分器对象
+    :ivar search_tree: 被分析的搜索树
 
-    :param search_tree: the search tree to do the analysis on
-    :param scorer: the object used to score the nodes, defaults to StateScorer
+    :param search_tree: 待分析的搜索树
+    :param scorer: 用于给节点打分的对象，默认为 `StateScorer`
     """
 
     def __init__(
@@ -62,16 +60,17 @@ class TreeAnalysis:
             self.scorers: List[Scorer] = scorer
         else:
             self.scorers = [scorer]
-        self._direction = "max"  # current implementation assumes maximisation
+        self._direction = "max"  # 当前实现默认所有目标都需要最大化。
         self._single_objective = len(self.scorers) == 1
 
     def best(self) -> _Solution:
         """
-        Returns the route or MCTS-like node with the highest score.
-        If several routes have the same score, it will return the first
+        返回得分最高的路线或 MCTS 风格节点。
 
-        :return: the top scoring node or route
-        :raises ValueError: if this is a multi-objective analysis, a single best solution cannot be return
+        如果多条路线分数相同，则返回第一条。
+
+        :return: 得分最高的节点或路线
+        :raises ValueError: 当当前分析是多目标分析时抛出
         """
         if not self._single_objective:
             raise ValueError("Cannot return best item for multi-objective analysis")
@@ -86,10 +85,10 @@ class TreeAnalysis:
 
     def pareto_front(self) -> Tuple[_Solution, ...]:
         """
-        Returns the Routes or MCTS-like Nodes that are the Pareto Front in the Multi-Objective search.
+        返回多目标搜索中的帕累托前沿路线或 MCTS 风格节点。
 
-        :returns: the pareto front solutions.
-        :raises ValueError: if this is a single-objective analysis, there is no Pareto-front
+        :returns: 帕累托前沿上的解
+        :raises ValueError: 当当前分析是单目标分析时抛出
         """
         if self._single_objective:
             raise ValueError("Cannot return Pareto front for single-objective analysis")
@@ -113,14 +112,14 @@ class TreeAnalysis:
         self, selection: Optional[RouteSelectionArguments] = None
     ) -> Tuple[_AnyListOfSolutions, Sequence[Dict[str, float]]]:
         """
-        Sort and select the nodes or routes in the search tree.
+        对搜索树中的节点或路线进行排序和筛选。
 
-        The score for each solution is a dictionary of scores,
-        one for each of the objectives.
+        每个解的分数都会以字典形式返回，
+        其中每个目标对应一个分数字段。
 
-        :param selection: selection criteria for the routes
-        :return: the sorted and selected items
-        :return: the scores of the sorted items
+        :param selection: 路线筛选条件
+        :return: 排序并筛选后的条目
+        :return: 对应条目的分数字典
         """
         selection = selection or RouteSelectionArguments()
 
@@ -145,13 +144,12 @@ class TreeAnalysis:
 
     def tree_statistics(self) -> StrDict:
         """
-        Returns statistics of the tree
+        返回搜索树的统计信息。
 
-        Currently it returns the number of nodes, the maximum number of transforms,
-        maximum number of children, top score, if the top score route is solved,
-        the number of molecule in the top score node, and information on pre-cursors
+        当前会返回节点数、最大变换次数、最大子节点数、最高得分、
+        最高分路线是否已求解、最高分节点中的分子数量，以及前体相关信息。
 
-        :return: the statistics
+        :return: 统计信息字典
         """
         if isinstance(self.search_tree, MctsSearchTree):
             return self._tree_statistics_mcts()
@@ -159,7 +157,7 @@ class TreeAnalysis:
 
     def _all_nodes(self) -> Sequence[MctsNode]:
         assert isinstance(self.search_tree, MctsSearchTree)
-        # This is to keep backwards compatibility, this should be investigate further
+        # 这里是为了保持向后兼容，后续仍值得进一步梳理。
         if repr(self.scorers[0]) == "state score":
             return list(self.search_tree.graph())
         return [node for node in self.search_tree.graph() if not node.children]
@@ -230,8 +228,8 @@ class TreeAnalysis:
             sum(route.in_stock(leaf) for leaf in route.leafs()) for route in top_routes  # type: ignore
         )
 
-        # For multi-objective it becomes to messy to have all the scores in this info,
-        # they are nevertheless included with the routes
+        # 多目标情况下若把全部分数都塞进这里会显得过于杂乱，
+        # 这些分数仍会随路线结果一起返回。
         if self._single_objective:
             top_score = self.scorers[0](top_routes[0])
         else:
@@ -290,8 +288,8 @@ class TreeAnalysis:
             [node[child]["action"] for node in nodes for child in node.children]
         )
 
-        # For multi-objective it becomes to messy to have all the scores in this info,
-        # they are nevertheless included with the routes
+        # 多目标情况下若把全部分数都塞进这里会显得过于杂乱，
+        # 这些分数仍会随路线结果一起返回。
         if self._single_objective:
             top_score = self.scorers[0](top_nodes[0])
         else:
@@ -335,28 +333,26 @@ class TreeAnalysis:
         min_comp: bool,
     ) -> Tuple[_AnyListOfSolutions, Sequence[Dict[str, float]]]:
         """
-        Finds and returns the top-ranked super-nodes or reaction trees and
-        their scores.
+        找出并返回排名最高的超节点或反应树及其分数。
 
-        The `selection` argument is used to control the number of items that are returned.
-        If at least one of the items is solved, and `selection` specifies that all items
-        should be returned, all solved items are returned.
-        Otherwise, at least a minimum number of items are returned, but there could be more
-        than this if they have the same rank. However not more than a maximum number of
-        items are returned.
+        `selection` 参数用于控制返回条目数量。
+        如果至少有一个条目已求解，并且 `selection` 指定返回全部，
+        则会返回所有已求解条目。
+        否则至少返回一个最小数量，但若存在同排名条目，
+        实际返回数量可能更多，不过不会超过最大返回数量。
 
-        Duplicated routes are ignored.
+        重复路线会被忽略。
 
-        The items are compared based on rank. For single-ojective analysis, this is simply
-        the score and higher is better. For multi-objective analysis, the rank is the Pareto
-        rank and smaller i better.
+        条目依据排名进行比较。
+        单目标分析中，排名实际就是分数，越高越好；
+        多目标分析中，排名是帕累托等级，越小越好。
 
-        :param items: the super-nodes or reaction trees to select from, sorted by rank
-        :param scores: the computed scores of the nodes
-        :param reaction: the reactions for each item, used for checking duplicity
-        :param ranks: the rank of each item, used for determining selection
-        :param selection: min and max solutions, or indication to return all
-        :param min_comp: True if higher rank is better, else False
+        :param items: 已按排名排序、待筛选的超节点或反应树
+        :param scores: 各节点对应的分数
+        :param reaction: 每个条目对应的反应序列，用于检查重复
+        :param ranks: 每个条目的排名，用于决定选择范围
+        :param selection: 最小/最大返回数，或是否返回全部的指示
+        :param min_comp: 若为 `True` 表示排名越高越好，否则表示越低越好
         """
         if len(items) <= selection.nmin:
             return items, scores

@@ -1,5 +1,4 @@
-""" Module containing classes that implements different expansion policy strategies
-"""
+"""实现多种扩展策略的模块。"""
 
 from __future__ import annotations
 
@@ -32,10 +31,10 @@ if TYPE_CHECKING:
 
 class ExpansionStrategy(abc.ABC):
     """
-    A base class for all expansion strategies.
+    所有扩展策略的抽象基类。
 
-    The strategy can be used by either calling the `get_actions` method
-    of by calling the instantiated class with a list of molecule.
+    可以直接调用 `get_actions` 方法，
+    也可以把实例当作可调用对象，对分子列表执行扩展。
 
     .. code-block::
 
@@ -43,8 +42,8 @@ class ExpansionStrategy(abc.ABC):
         actions, priors = expander.get_actions(molecules)
         actions, priors = expander(molecules)
 
-    :param key: the key or label
-    :param config: the configuration of the tree search
+    :param key: 策略键或标签
+    :param config: 树搜索配置
     """
 
     _required_kwargs: List[str] = []
@@ -73,38 +72,34 @@ class ExpansionStrategy(abc.ABC):
         cache_molecules: Optional[Sequence[TreeMolecule]] = None,
     ) -> Tuple[List[RetroReaction], List[float]]:
         """
-        Get all the probable actions of a set of molecules
+        获取一组分子的所有高概率动作。
 
-        :param molecules: the molecules to consider
-        :param cache_molecules: additional molecules to submit to the expansion
-                                  policy but that only will be cached for later use
-        :return: the actions and the priors of those actions
+        :param molecules: 待考虑的分子集合
+        :param cache_molecules: 额外提交给扩展策略的分子，
+            这些分子只会写入缓存，供后续使用
+        :return: 动作列表及其对应先验概率
         """
 
     def reset_cache(self) -> None:
-        """Reset the prediction cache"""
+        """重置预测缓存。"""
 
 
 class MultiExpansionStrategy(ExpansionStrategy):
     """
-    A base class for combining multiple expansion strategies.
+    组合多个扩展策略的基类。
 
-    The strategy can be used by either calling the `get_actions` method
-    or by calling the instantiated class with a list of molecules.
+    可以通过 `get_actions` 调用，也可以把实例直接当作可调用对象使用。
 
-    :ivar expansion_strategy_keys: the keys of the selected expansion strategies
-    :ivar additive_expansion: a conditional setting to specify whether all the actions
-        and priors of the selected expansion strategies should be combined or not.
-        Defaults to False.
-    :ivar expansion_strategy_weights: a list of weights for each expansion strategy.
-        The weights should sum to one. Exception is the default, where unity weight
-        is associated to each strategy.
+    :ivar expansion_strategy_keys: 选中的扩展策略键列表
+    :ivar additive_expansion: 是否合并所有选中策略的动作与先验概率，
+        默认为 `False`
+    :ivar expansion_strategy_weights: 各扩展策略的权重列表，
+        权重之和应为 1；若未设置，则默认每个策略权重都为 1
 
-    :param key: the key or label
-    :param config: the configuration of the tree search
-    :param expansion_strategies: the keys of the selected expansion strategies. All keys
-        of the selected expansion strategies must exist in the expansion policies listed
-        in config
+    :param key: 策略键或标签
+    :param config: 树搜索配置
+    :param expansion_strategies: 选中的扩展策略键列表，
+        所有键都必须已在 `config` 的扩展策略配置中声明
     """
 
     _required_kwargs = ["expansion_strategies"]
@@ -137,18 +132,17 @@ class MultiExpansionStrategy(ExpansionStrategy):
         cache_molecules: Optional[Sequence[TreeMolecule]] = None,
     ) -> Tuple[List[RetroReaction], List[float]]:
         """
-        Get all the probable actions of a set of molecules, using the selected policies.
+        使用选定的策略，获取一组分子的所有高概率动作。
 
-        The default implementation combines all the actions and priors of the
-        selected expansion strategies into two lists respectively if the
-        'additive_expansion' setting is set to True. This function can be overridden by
-        a sub class to combine different expansion strategies in different ways.
+        默认实现会在 `additive_expansion=True` 时，
+        将所有已选扩展策略的动作与先验概率分别合并为两个列表。
+        子类可以重写该方法，以实现其他组合方式。
 
-        :param molecules: the molecules to consider
-        :param cache_molecules: additional molecules to submit to the expansion
-            policy but that only will be cached for later use
-        :return: the actions and the priors of those actions
-        :raises: PolicyException: if the policy isn't selected
+        :param molecules: 待考虑的分子集合
+        :param cache_molecules: 额外提交给扩展策略的分子，
+            这些分子只会写入缓存，供后续使用
+        :return: 动作列表及其对应先验概率
+        :raises: PolicyException: 当策略未被正确选中时抛出
         """
         expansion_strategies = self._get_expansion_strategies_from_config()
 
@@ -205,11 +199,11 @@ class MultiExpansionStrategy(ExpansionStrategy):
         self, actions: List[RetroReaction], priors: List[float]
     ) -> Tuple[List[RetroReaction], List[float]]:
         """
-        Prune the actions if a maximum number of actions is specified.
+        当指定最大动作数时，对动作进行裁剪。
 
-        :param actions: list of predicted actions
-        :param priors: list of prediction probabilities
-        :return: the top 'self.cutoff_number' actions and corresponding priors.
+        :param actions: 预测动作列表
+        :param priors: 预测概率列表
+        :return: 概率最高的 `self.cutoff_number` 个动作及其先验概率
         """
         if not self.cutoff_number:
             return actions, priors
@@ -221,14 +215,15 @@ class MultiExpansionStrategy(ExpansionStrategy):
 
     def _set_expansion_strategy_weights(self, kwargs: StrDict) -> List[float]:
         """
-        Set the weights of each expansion strategy using the input kwargs from config.
-        The weights in the config should sum to one.
-        If not set in the config file, the weights default to one for each strategy
-        (for backwards compatibility).
+        根据配置中的 `kwargs` 设置各扩展策略权重。
 
-        :param kwargs: input arguments to the MultiExpansionStrategy
-        :raises: ValueError if weights from the config file do not sum to one.
-        :return: a list of expansion strategy weights
+        配置中的权重之和应为 1。
+        如果配置文件未设置，则默认每个策略的权重都为 1，
+        以兼容旧版本行为。
+
+        :param kwargs: `MultiExpansionStrategy` 的输入参数
+        :raises: ValueError: 当配置中的权重和不为 1 时抛出
+        :return: 扩展策略权重列表
         """
         if not "expansion_strategy_weights" in kwargs:
             return [1.0 for _ in self.expansion_strategy_keys]
@@ -248,24 +243,23 @@ class MultiExpansionStrategy(ExpansionStrategy):
 
 class TemplateBasedExpansionStrategy(ExpansionStrategy):
     """
-    A template-based expansion strategy that will return `TemplatedRetroReaction` objects upon expansion.
+    基于模板的扩展策略，展开后返回 `TemplatedRetroReaction` 对象。
 
-    :ivar template_column: the column in the template file that contains the templates
-    :ivar cutoff_cumulative: the accumulative probability of the suggested templates
-    :ivar cutoff_number: the maximum number of templates to returned
-    :ivar use_rdchiral: a boolean to apply templates with RDChiral
-    :ivar use_remote_models: a boolean to connect to remote TensorFlow servers
-    :ivar rescale_prior: a boolean to apply softmax to the priors
-    :ivar chiral_fingerprints: if True will base expansion on chiral fingerprint
-    :ivar mask: a boolean vector of masks for the reaction templates. The length of the vector should be equal to the
-        number of templates. It is set to None if no mask file is provided as input.
+    :ivar template_column: 模板文件中存放模板内容的列名
+    :ivar cutoff_cumulative: 建议模板的累计概率阈值
+    :ivar cutoff_number: 返回模板的最大数量
+    :ivar use_rdchiral: 是否使用 RDChiral 应用模板
+    :ivar use_remote_models: 是否连接远程 TensorFlow 服务
+    :ivar rescale_prior: 是否对先验概率再次应用 softmax
+    :ivar chiral_fingerprints: 若为 `True`，则使用手性指纹进行扩展
+    :ivar mask: 反应模板掩码向量，长度应与模板数一致；
+        如果未提供掩码文件，则为 `None`
 
-    :param key: the key or label
-    :param config: the configuration of the tree search
-    :param model: the source of the policy model
-    :param template: the path to a HDF5 file with the templates
-    :raises PolicyException: if the length of the model output vector is not same as the
-        number of templates
+    :param key: 策略键或标签
+    :param config: 树搜索配置
+    :param model: 策略模型来源
+    :param template: 包含模板的 HDF5 文件路径
+    :raises PolicyException: 当模型输出向量长度与模板数量不一致时抛出
     """
 
     _required_kwargs = [
@@ -317,12 +311,12 @@ class TemplateBasedExpansionStrategy(ExpansionStrategy):
         cache_molecules: Optional[Sequence[TreeMolecule]] = None,
     ) -> Tuple[List[RetroReaction], List[float]]:
         """
-        Get all the probable actions of a set of molecules, using the selected policies and given cutoffs
+        在给定截断条件下，获取一组分子的所有高概率动作。
 
-        :param molecules: the molecules to consider
-        :param cache_molecules: additional molecules to submit to the expansion
-                                  policy but that only will be cached for later use
-        :return: the actions and the priors of those actions
+        :param molecules: 待考虑的分子集合
+        :param cache_molecules: 额外提交给扩展策略的分子，
+            这些分子只会写入缓存，供后续使用
+        :return: 动作列表及其对应先验概率
         """
 
         possible_actions = []
@@ -355,14 +349,16 @@ class TemplateBasedExpansionStrategy(ExpansionStrategy):
         return possible_actions, priors  # type: ignore
 
     def reset_cache(self) -> None:
-        """Reset the prediction cache"""
+        """重置预测缓存。"""
         self._cache = {}
 
     def _cutoff_predictions(self, predictions: np.ndarray) -> np.ndarray:
         """
-        Get the top transformations, by selecting those that have:
-            * cumulative probability less than a threshold (cutoff_cumulative)
-            * or at most N (cutoff_number)
+        根据截断条件选出得分最高的模板变换。
+
+        选择规则为：
+            * 累计概率不超过阈值 `cutoff_cumulative`
+            * 或最多保留 `cutoff_number` 个结果
         """
         if self.mask is not None:
             predictions[~self.mask] = 0
@@ -409,14 +405,13 @@ class TemplateBasedExpansionStrategy(ExpansionStrategy):
 
 class TemplateBasedDirectExpansionStrategy(TemplateBasedExpansionStrategy):
     """
-    A template-based expansion strategy that will return `SmilesBasedRetroReaction` objects upon expansion
-    by directly applying the template
+    直接应用模板的扩展策略，展开后返回 `SmilesBasedRetroReaction` 对象。
 
-    :param key: the key or label
-    :param config: the configuration of the tree search
-    :param source: the source of the policy model
-    :param templatefile: the path to a HDF5 file with the templates
-    :raises PolicyException: if the length of the model output vector is not same as the number of templates
+    :param key: 策略键或标签
+    :param config: 树搜索配置
+    :param source: 策略模型来源
+    :param templatefile: 包含模板的 HDF5 文件路径
+    :raises PolicyException: 当模型输出向量长度与模板数量不一致时抛出
     """
 
     def get_actions(
@@ -425,12 +420,12 @@ class TemplateBasedDirectExpansionStrategy(TemplateBasedExpansionStrategy):
         cache_molecules: Optional[Sequence[TreeMolecule]] = None,
     ) -> Tuple[List[RetroReaction], List[float]]:
         """
-        Get all the probable actions of a set of molecules, using the selected policies and given cutoffs
+        在给定截断条件下，获取一组分子的所有高概率动作。
 
-        :param molecules: the molecules to consider
-        :param cache_molecules: additional molecules to submit to the expansion
-            policy but that only will be cached for later use
-        :return: the actions and the priors of those actions
+        :param molecules: 待考虑的分子集合
+        :param cache_molecules: 额外提交给扩展策略的分子，
+            这些分子只会写入缓存，供后续使用
+        :return: 动作列表及其对应先验概率
         """
         possible_actions = []
         priors = []

@@ -1,5 +1,4 @@
-""" Module containing a class that represents a node in the search tree.
-"""
+"""定义搜索树节点的模块。"""
 from __future__ import annotations
 
 import random
@@ -31,28 +30,28 @@ if TYPE_CHECKING:
 
 class MctsNode:
     """
-    A node in the search tree.
+    搜索树中的单个节点。
 
-    The children are instantiated lazily for efficiency: only when
-    a child is selected the reaction to create that child is applied.
+    为了提升效率，子节点采用惰性实例化：
+    只有当某个子节点被选中时，才会真正应用对应反应并创建该子节点。
 
-    Properties of an instantiated children to a node can be access with:
+    对于已经实例化的子节点，可以通过以下方式访问其属性：
 
     .. code-block::
 
         children_attr = node[child]
 
-    the return value is a dictionary with keys "action", "value", "prior"
-    and "visitations".
+    返回值是一个字典，包含 `"action"`、`"value"`、`"prior"` 和
+    `"visitations"` 等键。
 
-    :ivar is_expanded: if the node has had children added to it
-    :ivar is_expandable: if the node is expandable
-    :ivar tree: the tree owning this node
+    :ivar is_expanded: 节点是否已经生成过子节点
+    :ivar is_expandable: 节点是否仍可继续扩展
+    :ivar tree: 拥有该节点的搜索树
 
-    :param state: the state of the node
-    :param owner: the tree that owns this node
-    :param config: settings of the tree search algorithm
-    :param parent: the parent node, defaults to None
+    :param state: 节点状态
+    :param owner: 持有该节点的搜索树
+    :param config: 树搜索算法配置
+    :param parent: 父节点，默认为 `None`
     """
 
     def __init__(
@@ -106,12 +105,12 @@ class MctsNode:
         cls, smiles: str, tree: MctsSearchTree, config: Configuration
     ) -> "MctsNode":
         """
-        Create a root node for a tree using a SMILES.
+        使用给定的 SMILES 创建树根节点。
 
-        :param smiles: the SMILES representation of the root state
-        :param tree: the search tree
-        :param config: settings of the tree search algorithm
-        :return: the created node
+        :param smiles: 根状态对应的 SMILES 表示
+        :param tree: 搜索树
+        :param config: 树搜索算法配置
+        :return: 创建好的根节点
         """
         mol = TreeMolecule(parent=None, transform=0, smiles=smiles)
         state = MctsState(mols=[mol], config=config)
@@ -127,14 +126,14 @@ class MctsNode:
         parent: Optional["MctsNode"] = None,
     ) -> "MctsNode":
         """
-        Create a new node from a dictionary, i.e. deserialization.
+        从字典创建新节点，即执行反序列化。
 
-        :param dict_: the serialized node
-        :param tree: the search tree
-        :param config: settings of the tree search algorithm
-        :param molecules: the deserialized molecules
-        :param parent: the parent node
-        :return: a deserialized node
+        :param dict_: 序列化后的节点字典
+        :param tree: 搜索树
+        :param config: 树搜索算法配置
+        :param molecules: 已反序列化的分子对象
+        :param parent: 父节点
+        :return: 反序列化得到的节点
         """
         # pylint: disable=protected-access
         state = MctsState.from_dict(dict_["state"], config, molecules)
@@ -159,46 +158,46 @@ class MctsNode:
     @property
     def children(self) -> List["MctsNode"]:
         """
-        Returns all of the instantiated children.
+        返回所有已经实例化的子节点。
 
-        :return: the children
+        :return: 子节点列表
         """
         return [child for child in self._children if child]
 
     @property
     def is_solved(self) -> bool:
-        """Return if the state is solved."""
+        """返回当前状态是否已求解。"""
         return self.state.is_solved
 
     @property
     def parent(self) -> Optional["MctsNode"]:
-        """Return the parent of the node."""
+        """返回当前节点的父节点。"""
         return self._parent
 
     @property
     def state(self) -> MctsState:
-        """Return the underlying state of the node."""
+        """返回节点内部维护的状态对象。"""
         return self._state
 
     @property
     def _algo_config(self) -> StrDict:
-        """Just a convinient, shorter name of this."""
+        """为算法配置提供一个更简短的访问入口。"""
         return self._config.search.algorithm_config
 
     def actions_to(self) -> List[RetroReaction]:
         """
-        Returns the actions leading to this node
+        返回通往当前节点的动作序列。
 
-        :return: the list of actions
+        :return: 动作列表
         """
         return self.path_to()[0]
 
     def backpropagate(self, child: "MctsNode", value_estimate: float) -> None:
         """
-        Update the number of visitations of a particular child and its value.
+        更新某个子节点的访问次数及累计价值。
 
-        :param child: the child node
-        :param value_estimate: the value to add to the child value
+        :param child: 子节点
+        :param value_estimate: 要累加到子节点价值上的估计值
         """
         idx = self._children.index(child)
         self._children_visitations[idx] += 1
@@ -206,14 +205,15 @@ class MctsNode:
 
     def children_view(self) -> StrDict:
         """
-        Creates a view of the children attributes. Each of the
-        list returned is a new list, although the actual children
-        are not copied.
+        创建子节点属性的只读视图。
 
-        The return dictionary will have keys "actions", "values",
-        "priors", "visitations" and "objects".
+        返回字典中的各个列表都会重新创建，
+        但实际的子节点对象并不会被复制。
 
-        :return: the view
+        返回字典包含 `"actions"`、`"values"`、`"priors"`、
+        `"visitations"` 和 `"objects"` 等键。
+
+        :return: 子节点属性视图
         """
         return {
             "actions": list(self._children_actions),
@@ -225,14 +225,14 @@ class MctsNode:
 
     def expand(self) -> None:
         """
-        Expand the node.
+        展开当前节点。
 
-        Expansion is the process of creating the children of the node,
-        without instantiating a child object. The actions and priors are
-        taken from the policy network.
+        展开指的是为当前节点生成候选子节点信息，
+        但此时并不立即实例化真正的子节点对象。
+        动作及其先验概率来自策略网络。
 
-        If immediate instantiation is marked for some policies, however, the
-        children nodes will be instantiated.
+        不过，如果某些策略被标记为需要立即实例化，
+        则对应的子节点会在这里直接创建出来。
         """
         if self.is_expanded:
             msg = f"Oh no! This node is already expanded. id={id(self)}"
@@ -250,14 +250,14 @@ class MctsNode:
                 if child is not self:
                     cache_molecules.extend(child.state.expandable_mols)
 
-        # Calculate the possible actions, fill the child_info lists
-        # Actions by default only assumes 1 set of reactants
+        # 计算可选动作，并填充子节点信息列表。
+        # 默认情况下，一个动作只假设对应一组反应物。
         actions, priors = self._expansion_policy(
             self.state.expandable_mols, cache_molecules
         )
         self._fill_children_lists(actions, priors)
 
-        # Reverse the expansion if it did not produce any children
+        # 如果扩展没有生成任何子节点，则撤销展开状态。
         if len(actions) == 0:
             self.is_expandable = False
             self.is_expanded = False
@@ -267,9 +267,8 @@ class MctsNode:
 
         if not self._algo_config["immediate_instantiation"]:
             return
-        # Instantiate all children actions created by the marked policy,
-        # a new list of actions will be iterated over, because it can grow due
-        # to instantiation
+        # 对被标记的策略产出的所有子动作执行立即实例化。
+        # 这里遍历的是动作列表切片，因为实例化过程中列表可能继续增长。
         nactions = len(actions)
         for child_idx, action in enumerate(self._children_actions[:nactions]):
             policy_name = action.metadata.get("policy_name")
@@ -281,36 +280,38 @@ class MctsNode:
 
     def is_terminal(self) -> bool:
         """
-        Node is terminal if its unexpandable, or the internal state is terminal (solved).
+        节点在两种情况下会被视为终止节点：
+        当前不可继续扩展，或其内部状态本身已经终止（已求解）。
 
-        :return: the terminal attribute of the node
+        :return: 节点是否终止
         """
         return not self.is_expandable or self.state.is_terminal
 
     def path_to(self) -> Tuple[List[RetroReaction], List[MctsNode]]:
         """
-        Return the path to this node, which is a list of actions and a list of node.
+        返回到达当前节点的路径。
 
-        :return: the actions and nodes
+        路径由动作列表和节点列表组成。
+
+        :return: 动作列表与节点列表
         """
         return route_to_node(self)
 
     def promising_child(self) -> Optional["MctsNode"]:
         """
-        Return the child with the currently highest Q+U.
+        返回当前 `Q + U` 值最高的子节点。
 
-        The selected child will be instantiated if it has not been already.
+        如果该子节点尚未实例化，会先完成实例化。
 
-        If no actions could be found that were applicable, the method will
-        return None.
+        如果找不到任何可用动作，则返回 `None`。
 
-        :return: the child
+        :return: 选中的子节点
         """
         child = None
         while child is None:
             try:
                 child = self._score_and_select()
-            # _score_and_select raises exception if no children can be selected
+            # `_score_and_select` 在无可选子节点时会抛出异常。
             except ValueError:
                 child = None
                 break
@@ -326,10 +327,10 @@ class MctsNode:
 
     def serialize(self, molecule_store: MoleculeSerializer) -> StrDict:
         """
-        Serialize the node object to a dictionary.
+        将节点对象序列化为字典。
 
-        :param molecule_store: the serialized molecules
-        :return: the serialized node
+        :param molecule_store: 分子序列化存储器
+        :return: 序列化后的节点字典
         """
         return {
             "state": self.state.serialize(molecule_store),
@@ -350,9 +351,9 @@ class MctsNode:
 
     def to_reaction_tree(self) -> ReactionTree:
         """
-        Return reaction tree from the path of actions and nodes leading to this node.
+        根据通往当前节点的动作和节点路径构建反应树。
 
-        :return: the constructed tree
+        :return: 构建得到的反应树
         """
         return ReactionTreeFromSuperNode(self).tree
 
@@ -384,14 +385,13 @@ class MctsNode:
         first_child_idx = child_idx
         for state_index, state in enumerate(states):
             if self._generated_degeneracy(state, first_child_idx):
-                # Only need to disable first new child,
-                # if the action generated more states, we will just not generate
-                # a child for that state
+                # 只需禁用第一个新子节点；
+                # 如果该动作生成了更多状态，则直接跳过这些状态的子节点创建。
                 if state_index == 0:
                     self._disable_child(child_idx)
                 continue
 
-            # If there's more than one outcome, the lists need be expanded
+            # 如果动作有多个产物结果，需要同步扩展各个子节点信息列表。
             if state_index > 0:
                 child_idx = self._expand_children_lists(first_child_idx, state_index)
 
@@ -449,16 +449,14 @@ class MctsNode:
 
     def _generated_degeneracy(self, new_state: MctsState, child_idx: int) -> bool:
         """
-        Check if a new MCTS state is equal to another MCTS state of a children node.
+        检查新的 MCTS 状态是否与某个子节点的状态重复。
 
-        The check can be "partial" in which the equality is based only on the expandable molecules,
-        or "full" in which the equality is based on all molecules in the state.
+        检查方式可以是 `"partial"`，只比较可扩展分子；
+        也可以是 `"full"`，比较状态中的全部分子。
 
-        The comparison will not be made on unexpanded children nodes
-        or terminal children nodes.
+        尚未展开的子节点和终止子节点不会参与比较。
 
-        The metadata of the degenerate action will be added to the metadata
-        of the previously created equal state.
+        如果判定为重复，新动作的元数据会附加到此前已创建的等价状态动作上。
         """
 
         def equal_states(query_state):
@@ -481,7 +479,7 @@ class MctsNode:
         if previous_action is None:
             return False
 
-        # No need to copy the metadata because it will be the same
+        # 同一动作对象的元数据本来就是共享的，因此无需重复拷贝。
         if previous_action is self._children_actions[child_idx]:
             return True
 
@@ -493,16 +491,15 @@ class MctsNode:
 
     def _instantiate_child(self, child_idx: int) -> List["MctsNode"]:
         """
-        Instantiate the children node.
+        实例化指定的子节点。
 
-        The algorithm is:
-        * Apply the reaction associated with the child
-        * If the application of the action failed, set value to -1e6 and return None
-        * Create a new state array, one new state for each of the reaction outcomes
-        * Create new child nodes
-            - If a filter policy is available and the reaction outcome is unlikely
-              set value of child to -1e6
-         * Return all new nodes
+        算法流程如下：
+        * 应用该子节点对应的反应
+        * 如果反应应用失败，则将其值设为 `-1e6` 并返回空结果
+        * 为每个反应结果创建一个新状态
+        * 创建新的子节点
+        * 如果过滤策略判断某个结果不可行，则将对应子节点的值设为 `-1e6`
+        * 返回所有新建节点
         """
         if self._children[child_idx] is not None:
             raise NodeUnexpectedBehaviourException("Node already instantiated")
@@ -543,10 +540,10 @@ class MctsNode:
 
     def _select_child(self, child_idx: int) -> Optional["MctsNode"]:
         """
-        Selecting a child node implies instantiating the children nodes.
+        选择某个子节点时，必要时会触发其实例化。
 
-        If the child has already been instantiated, return immediately
-        Otherwise, select a random node of the feasible ones to return
+        如果该子节点已存在，则直接返回；
+        否则会在新创建出的可行节点中随机返回一个。
         """
         if self._children[child_idx]:
             return self._children[child_idx]
@@ -562,23 +559,21 @@ class MctsNode:
 
 class ParetoMctsNode(MctsNode):
     """
-    A node in a multi-objective tree search.
+    多目标树搜索中的节点。
 
-    This implements the algorithm from:
+    该实现基于以下算法：
         Chen W., Liu L. Pareto Monte Carlo Tree Search for Multi-Objective Informative Planning
         Robotics: Science and Systems 2019, 2012 arXiv:2111.01825
 
 
-    The main difference compared to the standard MCTS algorithm is:
-        - Children stats: the values, cumulative reward and priors are nested
-                     list, with one value per objective
-        - Selection: children on Pareto front are computed, and
-                     a child from this set is taken randomly
+    与标准 MCTS 相比，主要差异在于：
+        - 子节点统计量中的价值、累计奖励和先验值都是嵌套列表，
+          每个目标各占一个值
+        - 选择阶段会先计算帕累托前沿，再从其中随机选取一个子节点
 
-    This implementation disregards the prior of the children when it has been
-    visited once.
+    在本实现中，子节点一旦被访问过一次，就不再继续考虑其先验项。
 
-    It is assumed that all objectives are to be maximised.
+    默认假设所有目标都需要最大化。
     """
 
     def __init__(
@@ -591,22 +586,22 @@ class ParetoMctsNode(MctsNode):
         super().__init__(state, owner, config, parent)
         self._num_objectives = len(self._algo_config["search_rewards"])
         self._prior_weight = 1
-        self._direction = "max"  # current implementation assumes maximisation
+        self._direction = "max"  # 当前实现默认所有目标都需要最大化。
         self._children_rewards_cummulative: List[List[float]]
         self._children_values: List[List[float]]  # type: ignore
         self._children_priors: List[List[float]]  # type: ignore
 
     def backpropagate(self, child: "MctsNode", value_estimate: List[float]) -> None:  # type: ignore
         """
-        Update the number of visitations of a particular child and its value.
+        更新某个子节点的访问次数及累计价值。
 
-        :param child: the child node
-        :param value_estimate: the value to add to the child value
+        :param child: 子节点
+        :param value_estimate: 要累加到子节点价值上的估计值
         """
         idx = self._children.index(child)
         self._children_visitations[idx] += 1
-        # here we only update the cummulative rewards,
-        #  _children_values are updated at selection time
+        # 这里只更新累计奖励，
+        # `_children_values` 会在选择阶段再同步刷新。
         new_value_estimate = [
             cum_reward + new_reward
             for cum_reward, new_reward in zip(
@@ -617,14 +612,14 @@ class ParetoMctsNode(MctsNode):
 
     def children_view(self) -> StrDict:
         """
-        Creates a view of the children attributes. Each of the
-        list returned is a new list, although the actual children
-        are not copied.
+        创建子节点属性的只读视图。
 
-        The return dictionary will have keys "actions", "values",
-        "priors", "visitations", "rewards_cum", and "objects".
+        返回的各个列表都是新建副本，但子节点对象本身不会被复制。
 
-        :return: the view
+        返回字典包含 `"actions"`、`"values"`、`"priors"`、
+        `"visitations"`、`"rewards_cum"` 和 `"objects"` 等键。
+
+        :return: 子节点属性视图
         """
         dict_ = super().children_view()
         dict_["rewards_cum"] = list(self._children_rewards_cummulative)
@@ -632,10 +627,10 @@ class ParetoMctsNode(MctsNode):
 
     def serialize(self, molecule_store: MoleculeSerializer) -> StrDict:
         """
-        Serialize the node object to a dictionary.
+        将节点对象序列化为字典。
 
-        :param molecule_store: the serialized molecules
-        :return: the serialized node
+        :param molecule_store: 分子序列化存储器
+        :return: 序列化后的节点字典
         """
         dict_ = super().serialize(molecule_store)
         dict_["children_cumulative_reward"] = self._serialize_stats_list(
@@ -648,7 +643,7 @@ class ParetoMctsNode(MctsNode):
 
     def _expand_children_lists(self, old_index: int, action_index: int) -> int:
         ret = super()._expand_children_lists(old_index, action_index)
-        # These lists are nested lists, so need to make sure that the inner lists are also new
+        # 这些字段是嵌套列表，因此也要为内部列表创建独立副本。
         self._children_values[-1] = list(self._children_values[-1])
         self._children_priors[-1] = list(self._children_priors[-1])
         self._children_rewards_cummulative.append(
@@ -661,14 +656,14 @@ class ParetoMctsNode(MctsNode):
     ) -> None:
         self._children_actions = actions
         nactions = len(actions)
-        # shape: num_actions x 1
+        # 形状：num_actions x 1
         self._children_visitations = [1] * nactions
         self._children = [None] * nactions
-        # shape: num_actions x num_objectives
+        # 形状：num_actions x num_objectives
         self._children_rewards_cummulative = [[0.0] * self._num_objectives] * nactions
         if self._algo_config["use_prior"]:
-            # shape: num_actions x num_objectives
-            # for children i, 3 objectives -> [prior i, prior i, prior i]
+            # 形状：num_actions x num_objectives
+            # 例如子节点 i 对应 3 个目标时，先验会展开为 [prior_i, prior_i, prior_i]。
             self._children_priors = [[prior] * self._num_objectives for prior in priors]
 
         else:
@@ -676,7 +671,7 @@ class ParetoMctsNode(MctsNode):
                 [self._algo_config["default_prior"]] * self._num_objectives
             ] * nactions
 
-        # at initialisation, values = prior as cummulative rewards are zero
+        # 初始化时累计奖励为零，因此价值先等于先验项。
         self._children_values = [
             [prior * self._prior_weight for prior in priors]
             for priors in self._children_priors
@@ -691,17 +686,17 @@ class ParetoMctsNode(MctsNode):
         return children_values_arr / children_visitations_expanded
 
     def _compute_children_scores(self) -> np.ndarray:
-        """Compute the modified ucb scores: alpha * prior + average reward + exploration."""
-        # update prior to zero once the node has been visited
+        """计算修正后的 UCB 分数：`alpha * prior + average reward + exploration`。"""
+        # 节点一旦被访问过，就把其先验项衰减为零。
         children_priors_arr = self._prior_schedule_oneoff()
-        # compute prior_weight * prior + cummulative rewards
+        # 计算 `prior_weight * prior + cumulative_rewards`。
         children_values_arr = self._prior_weight * children_priors_arr + np.array(
             self._children_rewards_cummulative
         )
         expanded_u = np.repeat(
             self._children_u().reshape(-1, 1), axis=1, repeats=self._num_objectives
         )
-        # _children_scores shape: num_childrens x num_objectives
+        # `_children_scores` 的形状为 num_children x num_objectives。
         children_scores = self._children_q(children_values_arr) + expanded_u
         if children_scores.shape[1] != self._num_objectives:
             raise ValueError(
@@ -713,11 +708,11 @@ class ParetoMctsNode(MctsNode):
         return children_scores
 
     def _prior_schedule_oneoff(self) -> np.ndarray:
-        # shape: num_children x 1
+        # 形状：num_children x 1
         visted_mask = (np.array(self._children_visitations) > 1).reshape(-1, 1)
-        # shape: num_children x num_objectives
+        # 形状：num_children x num_objectives
         visted_mask = np.repeat(visted_mask, axis=1, repeats=self._num_objectives)
-        # set the prior weights for visited children to be zero
+        # 已访问子节点的先验权重会被置零。
         children_priors_arr = np.array(self._children_priors)
         children_priors_arr[visted_mask] = 0
         return children_priors_arr
@@ -737,11 +732,12 @@ class ParetoMctsNode(MctsNode):
 
     def _update_pareto_front(self, children_scores: np.ndarray) -> np.ndarray:
         """
-        Update the pareto front of a node, this step normally happens
-        after its values for the best child have been updated.
+        更新节点的帕累托前沿。
 
-        :param children_scores: Children scores
-        :returns: Pareto front children indexes
+        这一步通常发生在最佳子节点的价值更新之后。
+
+        :param children_scores: 子节点分数
+        :returns: 位于帕累托前沿的子节点索引
         """
         direction_arr = np.repeat(self._direction, self._num_objectives)
         mask = paretoset(children_scores, sense=direction_arr, distinct=False)

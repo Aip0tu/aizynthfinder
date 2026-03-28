@@ -1,4 +1,4 @@
-""" Module containing Retro* cost models """
+"""Retro* 分子代价模型定义。"""
 from __future__ import annotations
 
 import pickle
@@ -17,11 +17,11 @@ if TYPE_CHECKING:
 
 class MoleculeCost:
     """
-    A class to compute the molecule cost.
+    负责计算分子代价的封装类。
 
-    The cost to be computed is taken from the input config. If no `molecule_cost` is
-    set, assigns ZeroMoleculeCost as the `cost` by default. The `molecule_cost` can be
-    set as a dictionary in config under `search` in the following format:
+    要使用的代价模型从配置中读取。
+    如果未设置 `molecule_cost`，则默认使用 `ZeroMoleculeCost`。
+    `molecule_cost` 可以在 `search` 下按如下结构配置：
     'algorithm': 'retrostar'
     'algorithm_config': {
         'molecule_cost': {
@@ -30,14 +30,14 @@ class MoleculeCost:
         }
     }
 
-    The cost can be computed by calling the instantiated class with a molecule.
+    实例化后，可以直接把分子对象传给该类来计算代价。
 
     .. code-block::
 
         calculator = MyCost(config)
         cost = calculator.calculate(molecule)
 
-    :param config: the configuration of the tree search
+    :param config: 树搜索配置
     """
 
     def __init__(self, config: Configuration) -> None:
@@ -59,11 +59,11 @@ class MoleculeCost:
 
 class RetroStarCost:
     """
-    Encapsulation of the original Retro* molecular cost model
+    原始 Retro* 分子代价模型的封装。
 
-    Numpy implementation of original pytorch model
+    这是对原始 PyTorch 模型的 NumPy 实现。
 
-    The predictions of the score is made on a Molecule object
+    评分对象是 `Molecule` 实例。
 
     .. code-block::
 
@@ -71,15 +71,14 @@ class RetroStarCost:
         scorer = RetroStarCost()
         score = scorer.calculate(mol)
 
-    The model provided when creating the scorer object should be a pickled
-    tuple.
-    The first item of the tuple should be a list of the model weights for each layer.
-    The second item of the tuple should be a list of the model biases for each layer.
+    创建评分器时提供的模型应是一个 pickled 元组。
+    元组第一个元素是各层权重列表，
+    第二个元素是各层偏置列表。
 
-    :param model_path: the filename of the model weights and biases
-    :param fingerprint_length: the number of bits in the fingerprint
-    :param fingerprint_radius: the radius of the fingerprint
-    :param dropout_rate: the dropout_rate
+    :param model_path: 模型权重与偏置文件路径
+    :param fingerprint_length: 指纹位数
+    :param fingerprint_radius: 指纹半径
+    :param dropout_rate: dropout 比例
     """
 
     _required_kwargs = ["model_path"]
@@ -97,6 +96,8 @@ class RetroStarCost:
         return "retrostar"
 
     def calculate(self, mol: Molecule) -> float:
+        """计算指定分子的 Retro* 代价值。"""
+
         # pylint: disable=invalid-name
         mol.sanitize()
         vec = mol.fingerprint(
@@ -105,7 +106,7 @@ class RetroStarCost:
         for W, b in zip(self._weights[:-1], self._biases[:-1]):
             vec = np.matmul(vec, W) + b
             vec *= vec > 0  # ReLU
-            # Drop-out
+            # Dropout
             vec *= np.random.binomial(1, self._dropout_prob, size=vec.shape) / (
                 self._dropout_prob
             )
@@ -124,10 +125,12 @@ class RetroStarCost:
 
 
 class ZeroMoleculeCost:
-    """Encapsulation of a Zero cost model"""
+    """零代价模型封装。"""
 
     def __repr__(self) -> str:
         return "zero"
 
     def calculate(self, _mol: Molecule) -> float:  # pytest: disable=unused-argument
+        """始终返回零代价。"""
+
         return 0.0

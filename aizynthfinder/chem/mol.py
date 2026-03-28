@@ -1,5 +1,4 @@
-""" Module containing classes to deal with Molecules - mostly wrappers around rdkit routines.
-"""
+"""处理分子对象的模块，主要封装 RDKit 相关能力。"""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -26,19 +25,18 @@ if TYPE_CHECKING:
 
 class Molecule:
     """
-    A base class for molecules. Encapsulate an RDKit mol object and
-    functions that can be applied to such a molecule.
+    分子对象基类，封装 RDKit `Mol` 及其常用操作。
 
-    The objects of this class is hashable by the inchi key and hence
-    comparable with the equality operator.
+    该类对象基于 InChIKey 参与哈希，因此可以直接比较相等性。
 
-    :ivar rd_mol: the RDkit mol object that is encapsulated
-    :ivar smiles: the SMILES representation of the molecule
+    :ivar rd_mol: 被封装的 RDKit `Mol` 对象
+    :ivar smiles: 分子的 SMILES 表示
 
-    :param rd_mol: a RDKit mol object to encapsulate, defaults to None
-    :param smiles: a SMILES to convert to a molecule object, defaults to None
-    :param sanitize: if True, the molecule will be immediately sanitized, defaults to False
-    :raises MoleculeException: if neither rd_mol or smiles is given, or if the molecule could not be sanitized
+    :param rd_mol: 要封装的 RDKit `Mol`，默认为 `None`
+    :param smiles: 用于构建分子的 SMILES，默认为 `None`
+    :param sanitize: 若为 `True`，会立刻执行规范化，默认为 `False`
+    :raises MoleculeException: 当 `rd_mol` 和 `smiles` 都未提供，
+        或分子无法规范化时抛出
     """
 
     def __init__(
@@ -64,9 +62,9 @@ class Molecule:
         self._fingerprints: Dict[Union[Tuple[int, int], Tuple[int]], np.ndarray] = {}
         self._is_sanitized: bool = False
 
-        # Atom mapping -> atom index dictionary
+        # 原子映射号 -> 原子索引
         self._atom_mappings: Dict[int, int] = {}
-        # Atom index -> atom mapping dictionary
+        # 原子索引 -> 原子映射号
         self._reverse_atom_mappings: Dict[int, int] = {}
 
         if sanitize:

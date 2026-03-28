@@ -1,5 +1,4 @@
-""" Module containing classes to deal with Reactions.
-"""
+"""处理反应对象的模块。"""
 from __future__ import annotations
 
 import abc
@@ -50,9 +49,9 @@ if RDCHIRAL_CPP:
 
 class _ReactionInterfaceMixin:
     """
-    Mixin class to define a common interface for all reaction class
+    为各类反应对象定义统一接口的混入类。
 
-    The methods `_products_getter` and `_reactants_getter` needs to be implemented by subclasses
+    子类需要实现 `_products_getter` 与 `_reactants_getter`。
     """
 
     def fingerprint(
@@ -118,20 +117,19 @@ class _ReactionInterfaceMixin:
 
 class RetroReaction(abc.ABC, _ReactionInterfaceMixin):
     """
-    A retrosynthesis reaction. Only a single molecule is the reactant.
+    逆合成反应抽象基类，且反应只作用于单个目标分子。
 
-    This is an abstract class and child classes needs to implement the `_apply` and `_make_smiles` functions
-    that should create the reactants molecule objects and the reaction SMILES representation, respectively.
+    子类需要实现 `_apply` 与 `_make_smiles`，
+    分别负责生成反应物对象和反应 SMILES 表示。
 
-    :ivar mol: the TreeMolecule object that this reaction is applied to
-    :ivar index: a unique index of this reaction,
-                 to count for the fact that a reaction can produce more than one outcome
-    :ivar metadata: meta data associated with the reaction
+    :ivar mol: 该反应所作用的 `TreeMolecule`
+    :ivar index: 该反应的唯一索引，用于区分同一反应的多个结果
+    :ivar metadata: 反应元数据
 
-    :param mol: the molecule
-    :param index: the index, defaults to 0
-    :param metadata: some meta data
-    :params kwargs: any extra parameters for child classes
+    :param mol: 目标分子
+    :param index: 结果索引，默认为 `0`
+    :param metadata: 元数据
+    :params kwargs: 传给子类的额外参数
     """
 
     _required_kwargs: List[str] = []
@@ -235,9 +233,11 @@ class RetroReaction(abc.ABC, _ReactionInterfaceMixin):
 
     def to_dict(self) -> StrDict:
         """
-        Return the retro reaction as dictionary
-        This dictionary is not suitable for serialization, but is used by other serialization routines
-        The elements of the dictionary can be used to instantiate a new reaction object
+        将逆合成反应转换为字典。
+
+        该字典不直接用于序列化，
+        但会被其他序列化流程复用。
+        字段内容足以重新实例化一个新的反应对象。
         """
         return {
             "mol": self.mol,
@@ -274,13 +274,14 @@ class RetroReaction(abc.ABC, _ReactionInterfaceMixin):
 
 class TemplatedRetroReaction(RetroReaction):
     """
-    A retrosynthesis reaction that uses a reaction SMARTS and RDChiral to produce reactant molecules.
-    The SMILES representation of the reaction is the SMARTS (modified by RDKit)
+    使用反应 SMARTS 与 RDChiral 生成反应物的逆合成反应。
 
-    :param mol: the molecule
-    :param index: the index, defaults to 0
-    :param metadata: some meta data
-    :param smarts: a string representing the template
+    该反应的 SMILES 表示为模板 SMARTS（可能被 RDKit 调整）。
+
+    :param mol: 目标分子
+    :param index: 结果索引，默认为 `0`
+    :param metadata: 元数据
+    :param smarts: 模板字符串
     """
 
     _required_kwargs = ["smarts"]
@@ -304,12 +305,14 @@ class TemplatedRetroReaction(RetroReaction):
 
     @property
     def rd_reaction(self) -> RdReaction:
-        """Return the RDKit reaction created from the SMART"""
+        """返回根据 SMARTS 创建的 RDKit 反应对象。"""
         if self._rd_reaction is None:
             self._rd_reaction = AllChem.ReactionFromSmarts(self.smarts)
         return self._rd_reaction
 
     def to_dict(self) -> StrDict:
+        """将模板反应转换为包含 `smarts` 的字典。"""
+
         dict_ = super().to_dict()
         dict_["smarts"] = self.smarts
         return dict_
@@ -339,7 +342,7 @@ class TemplatedRetroReaction(RetroReaction):
             )
             reactants = []
 
-        # Turning rdchiral outcome into rdkit tuple of tuples to maintain compatibility
+        # 将 rdchiral 输出转换成 RDKit 兼容的元组嵌套结构。
         outcomes = []
         for reactant_str in reactants:
             smiles_list = reactant_str.split(".")
@@ -421,14 +424,14 @@ class TemplatedRetroReaction(RetroReaction):
 
 class SmilesBasedRetroReaction(RetroReaction):
     """
-    A retrosynthesis reaction where the SMILES of the reactants are given on initiation
+    初始化时直接给定反应物 SMILES 的逆合成反应。
 
-    The SMILES representation of the reaction is the reaction SMILES
+    该反应的 SMILES 表示就是完整的反应 SMILES。
 
-    :param mol: the molecule
-    :param index: the index, defaults to 0
-    :param metadata: some meta data
-    :param reactants_str: a dot-separated string of reactant SMILES strings
+    :param mol: 目标分子
+    :param index: 结果索引，默认为 `0`
+    :param metadata: 元数据
+    :param reactants_str: 以点号分隔的反应物 SMILES 字符串
     """
 
     _required_kwargs = ["reactants_str"]
@@ -450,6 +453,8 @@ class SmilesBasedRetroReaction(RetroReaction):
         )
 
     def to_dict(self) -> StrDict:
+        """将基于 SMILES 的反应转换为包含反应物字符串的字典。"""
+
         dict_ = super().to_dict()
         dict_["reactants_str"] = self.reactants_str
         dict_["mapped_prod_smiles"] = self._mapped_prod_smiles

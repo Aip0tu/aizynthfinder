@@ -1,5 +1,4 @@
-""" Module containing base classes used to score routes.
-"""
+"""定义路线评分相关基础类的模块。"""
 
 from __future__ import annotations
 
@@ -37,12 +36,11 @@ if TYPE_CHECKING:
 @dataclass
 class SquashScaler:
     """
-    Squash function loosely adapted from a sigmoid function with parameters
-    to modify and offset the shape
+    通过可调参数对 sigmoid 进行变形后的压缩函数。
 
-    :param slope: the slope of the midpoint
-    :param xoffset: the offset of the midpoint along the x-axis
-    :param yoffset: the offset of the curve along the y-axis
+    :param slope: 中点附近的斜率
+    :param xoffset: 曲线在 x 轴上的中点偏移
+    :param yoffset: 曲线在 y 轴上的整体偏移
     """
 
     slope: float
@@ -56,15 +54,15 @@ class SquashScaler:
 @dataclass
 class MinMaxScaler:
     """
-    Scaling function that normalises the value between 0 - 1,
-    the reverse variable controls the direction of scaling,
-    reverse should set to be true for rewards that need to be minimised
-    the scale_factor could be used to adjust the scores when they are too small or too big
+    将值归一化到 0 到 1 之间的缩放函数。
 
-    :param val: the value that is being scaled
-    :param min_val: minimum val param val could take
-    :param max_val: maximum val param val could take
-    :param scale_factor: scaling factor applied to the minmax scaled output
+    `reverse` 控制缩放方向；对于需要最小化的奖励，应设为 `True`。
+    `scale_factor` 可在分数过小或过大时进一步调整结果。
+
+    :param val: 待缩放的值
+    :param min_val: `val` 的理论最小值
+    :param max_val: `val` 的理论最大值
+    :param scale_factor: 归一化后额外施加的缩放因子
     """
 
     min_val: float
@@ -84,10 +82,10 @@ class MinMaxScaler:
 @dataclass
 class PowerScaler:
     """
-    Scaling function that returns the base_coefficient to the power of the value.
+    以底数幂函数形式进行缩放。
 
-    :param val: the value that is being scaled
-    :param base_coefficient: coefficient for scalingm 'base_coefficient < 1' => reversing scale
+    :param val: 待缩放的值
+    :param base_coefficient: 缩放底数，`base_coefficient < 1` 时会反转缩放方向
     """
 
     base_coefficient: float = 0.98
@@ -101,25 +99,24 @@ _SCALERS = {"squash": SquashScaler, "min_max": MinMaxScaler, "power": PowerScale
 
 class Scorer(abc.ABC):
     """
-    Abstract base class for classes that do scoring on MCTS-like nodes or reaction trees.
+    对 MCTS 风格节点或反应树进行评分的抽象基类。
 
-    The actual scoring is done be calling an instance of
-    a scorer class with a ``Node`` or ``ReactionTree`` object as only argument.
+    评分时，直接把 `Node` 或 `ReactionTree` 作为唯一参数传给评分器实例即可。
 
     .. code-block::
 
         scorer = MyScorer()
         score = scorer(node1)
 
-    You can also give a list of such objects to the scorer
+    也可以一次传入由这些对象组成的列表。
 
     .. code-block::
 
         scorer = MyScorer()
         scores = scorer([node1, node2])
 
-    :param config: the configuration the tree search
-    :param scaler_params: the parameter settings of the scaler
+    :param config: 树搜索配置
+    :param scaler_params: 缩放器参数设置
     """
 
     scorer_name = "base"
@@ -161,10 +158,10 @@ class Scorer(abc.ABC):
         self, items: _Scoreables
     ) -> Tuple[_Scoreables, Sequence[float], Sequence[int]]:
         """
-        Sort nodes or reaction trees in descending order based on the score
+        按分数从高到低对节点或反应树排序。
 
-        :param items: the items to sort
-        :return: the sorted items and their scores
+        :param items: 待排序的条目
+        :return: 排序后的条目及其分数
         """
         scores = self._score_many(items)
         assert isinstance(scores, SequenceAbc)
@@ -204,4 +201,6 @@ class Scorer(abc.ABC):
 
 @functools.lru_cache
 def make_rxnutils_route(tree: ReactionTree) -> SynthesisRoute:
+    """将 `ReactionTree` 转换为 `rxnutils` 可识别的路线对象。"""
+
     return read_aizynthfinder_dict(tree.to_dict())
